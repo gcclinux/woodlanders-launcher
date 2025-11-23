@@ -1,0 +1,60 @@
+name: woodlanders-launcher
+base: core24
+version: 0.1.0
+summary: Woodlanders game launcher and updater
+description: |
+  Desktop launcher for the Woodlanders Single and Multiplayer Adventure game. It checks GitHub for the
+  latest client release, downloads it into ${HOME}/.config/woodlanders/, and
+  launches the game with a single button.
+
+grade: devel
+confinement: strict
+icon: snap/gui/woodlanders-launcher.png
+
+plugs:
+  woodlanders-config:
+    interface: personal-files
+    read:
+      - $HOME/.config/woodlanders
+    write:
+      - $HOME/.config/woodlanders
+
+environment:
+  JAVA_HOME: $SNAP/usr/lib/jvm/java-21-openjdk-amd64
+  PATH: $JAVA_HOME/bin:$PATH
+
+apps:
+  woodlanders-launcher:
+    command: bin/app
+    desktop: meta/gui/woodlanders-launcher.desktop
+    plugs:
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - home
+      - network
+      - network-bind
+      - opengl
+      - woodlanders-config
+
+parts:
+  launcher:
+    plugin: nil
+    source: .
+    build-packages:
+      - openjdk-21-jdk
+    stage-packages:
+      - openjdk-21-jre
+      - libgtk-3-0
+      - libglib2.0-0
+      - libasound2
+      - libx11-6
+      - libxtst6
+      - libnss3
+      - openjfx
+    override-build: |
+      ./gradlew :app:installDist
+      install -d "$CRAFT_PART_INSTALL"
+      cp -r app/build/install/app/* "$CRAFT_PART_INSTALL/"
+      chmod +x "$CRAFT_PART_INSTALL/bin/app"
