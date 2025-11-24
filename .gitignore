@@ -80,3 +80,6 @@ replay_pid*
 /parts/
 /prime/
 /stage/
+
+# flatpak
+.flatpak-builder

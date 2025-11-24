@@ -7,17 +7,17 @@ description: |
   latest client release, downloads it into ${HOME}/.config/woodlanders/, and
   launches the game with a single button.
 
-grade: devel
+grade: stable
 confinement: strict
 icon: snap/gui/woodlanders-launcher.png
 
-plugs:
-  woodlanders-config:
-    interface: personal-files
-    read:
-      - $HOME/.config/woodlanders
-    write:
-      - $HOME/.config/woodlanders
+title: Woodlanders Launcher
+license: MIT
+contact: https://github.com/gcclinux/woodlanders/discussions
+website: https://gcclinux.github.io/woodlanders/
+source-code: https://github.com/gcclinux/woodlanders-launcher
+issues: https://github.com/gcclinux/Woodlanders/issues
+donation: https://www.buymeacoffee.com/gcclinux
 
 environment:
   JAVA_HOME: $SNAP/usr/lib/jvm/java-21-openjdk-amd64
@@ -36,7 +36,6 @@ apps:
       - network
       - network-bind
       - opengl
-      - woodlanders-config
 
 parts:
   launcher:

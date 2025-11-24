@@ -242,9 +242,70 @@ tasks.register('snapPackage', Exec) {
     }
 }
 
+// Task to build flatpak package
+tasks.register('flatpakPackage', Exec) {
+    group = 'distribution'
+    description = 'Builds the flatpak package using flatpak-builder'
+    
+    workingDir project.rootDir
+    
+    def buildDir = "app/build/flatpak-build"
+    def repoDir = "app/build/flatpak-repo"
+    def bundlePath = "app/build/distributions/woodlanders-launcher.flatpak"
+    
+    // Note: --share=network is not supported in older flatpak-builder versions (like 1.4.2 on Ubuntu 24.04)
+    // Instead, we need to configure network access in the manifest or build options
+    // For now, we'll remove the flag and rely on build-options in the manifest
+    commandLine 'flatpak-builder', 
+                '--repo=' + repoDir, 
+                '--force-clean', 
+                buildDir, 
+                'flatpak/com.woodlanders.launcher.yml'
+    
+    doFirst {
+        println "Building Flatpak package..."
+        file(repoDir).mkdirs()
+        file("app/build/distributions").mkdirs()
+    }
+    
+    doLast {
+        println "Creating Flatpak bundle..."
+        def bundleCmd = ['flatpak', 'build-bundle', repoDir, bundlePath, 'com.woodlanders.launcher']
+        def process = new ProcessBuilder(bundleCmd)
+            .directory(project.rootDir)
+            .inheritIO()
+            .start()
+        def exitCode = process.waitFor()
+        if (exitCode != 0) {
+            throw new GradleException("flatpak build-bundle failed with exit code ${exitCode}")
+        }
+        println "✓ Flatpak package created: ${bundlePath}"
+    }
+    
+    // Only run if flatpak-builder is available
+    onlyIf {
+        try {
+            def checkCmd = ['sh', '-c', 'command -v flatpak-builder']
+            def process = checkCmd.execute()
+            process.waitFor()
+            
+            if (process.exitValue() == 0) {
+                logger.info("flatpak-builder found, will build flatpak package")
+                return true
+            } else {
+                logger.warn("flatpak-builder not found. Skipping flatpak package build.")
+                return false
+            }
+        } catch (Exception e) {
+            logger.warn("Could not detect flatpak-builder: ${e.message}")
+            return false
+        }
+    }
+}
+
 // Task to build all distribution packages
 tasks.register('buildAllPackages') {
-    dependsOn windowsPackage, windowsInstallerPackage, linuxPackage, snapPackage
+    dependsOn windowsPackage, windowsInstallerPackage, linuxPackage, snapPackage, flatpakPackage
     group = 'distribution'
     description = 'Builds all distribution packages including Windows installer and snap'
     
@@ -266,6 +327,12 @@ tasks.register('buildAllPackages') {
             println "Linux (Snap):         app/build/distributions/${snapFiles[0].name}"
         } else {
             println "Linux (Snap):         (skipped - snapcraft not available)"
+        }
+        
+        if (file("app/build/distributions/woodlanders-launcher.flatpak").exists()) {
+            println "Linux (Flatpak):      app/build/distributions/woodlanders-launcher.flatpak"
+        } else {
+            println "Linux (Flatpak):      (skipped - flatpak-builder not available)"
         }
         
         println "=========================================\n"

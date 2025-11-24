@@ -11,6 +11,9 @@
   <a href="https://github.com/gcclinux/Woodlanders/discussions">
     <img alt="Join Discussions" src="https://img.shields.io/badge/💬_Join_Discussions-GitHub-blue?style=for-the-badge" />
   </a>
+    <a href="https://snapcraft.io/woodlanders-launcher">
+    <img alt="woodlanders-launcher" src="https://snapcraft.io/woodlanders-launcher/badge.svg" />
+  </a>
   <a href="https://www.buymeacoffee.com/gcclinux">
     <img alt="Buy Me A Coffee" src="https://img.shields.io/badge/☕_Buy_Me_A_Coffee-Support-yellow?style=for-the-badge" />
   </a>
@@ -28,7 +31,7 @@
 > 🧪 Your Role: Explorer, tester, trail maker
 
 Woodlanders Launcher is a JavaFX desktop app for the
-[Woodlanders](https://gcclinux.github.io/Woodlanders/) game. It automatically
+[Woodlanders](https://gcclinux.github.io/woodlanders/) game. It automatically
 checks for updates, downloads the latest client from GitHub releases, caches it
 locally, and launches the game with a single click.
 
@@ -98,6 +101,8 @@ If you explore, plant, test, nudge the edges, and tell us what you felt—you he
 ---
 
 ## Quick Start
+
+[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/woodlanders-launcher)
 
 ### Windows (Recommended)
 

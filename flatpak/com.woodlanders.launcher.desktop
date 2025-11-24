@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Woodlanders Launcher
+Comment=Update and launch the Woodlanders client
+Exec=woodlanders-launcher
+Icon=com.woodlanders.launcher
+Terminal=false
+Categories=Game;
