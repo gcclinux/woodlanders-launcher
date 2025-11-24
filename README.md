@@ -124,8 +124,8 @@ See [LICENSE](LICENSE) file for details.
 
 ## Links
 
-- **Game Website**: [https://gcclinux.github.io/Woodlanders/](https://gcclinux.github.io/Woodlanders/)
-- **Game Repository**: [Woodlanders on GitHub](https://github.com/gcclinux/Woodlanders)
+- **Game Website**: [https://gcclinux.github.io/Woodlanders/](https://gcclinux.github.io/woodlanders/)
+- **Game Repository**: [Woodlanders on GitHub](https://github.com/gcclinux/woodlanders)
 - **Installation Guides**:
   - [Windows Installation Guide](WINDOWS_INSTALL_GUIDE.md)
   - [Build Guide](docs/BUILD_GUIDE.md)
