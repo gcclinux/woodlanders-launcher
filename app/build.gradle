@@ -9,6 +9,8 @@ plugins {
     // Apply the application plugin to add support for building a CLI + GUI application in Java.
     id 'application'
     id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'com.gradleup.shadow' version '8.3.5'
+    id 'org.beryx.jlink' version '3.0.1'
 }
 
 repositories {
@@ -75,4 +77,268 @@ tasks.withType(JavaCompile).configureEach {
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
+}
+
+// Configure shadow JAR (fat JAR with all dependencies)
+shadowJar {
+    archiveBaseName = 'woodlanders-launcher'
+    archiveClassifier = ''
+    archiveVersion = '0.1.0'
+    
+    manifest {
+        attributes(
+            'Main-Class': 'com.woodlanders.launcher.ui.LauncherApplication',
+            'Multi-Release': 'true'
+        )
+    }
+    
+    // Exclude signature files to avoid security exceptions
+    exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
+    
+    // Merge service files
+    mergeServiceFiles()
+}
+
+// Task to create Windows distribution package
+tasks.register('windowsPackage', Zip) {
+    dependsOn shadowJar
+    archiveBaseName = 'woodlanders-launcher-windows'
+    archiveVersion = '0.1.0'
+    destinationDirectory = file("$buildDir/distributions")
+    
+    from(shadowJar.archiveFile) {
+        rename { 'woodlanders-launcher.jar' }
+    }
+    
+    from('src/main/scripts') {
+        include '*.bat', '*.ps1'
+        filter { line ->
+            line.replace('${VERSION}', '0.1.0')
+        }
+    }
+    
+    from('../icon') {
+        include '*.ico'
+    }
+    
+    from('../') {
+        include 'README.md', 'WINDOWS_README.md'
+    }
+}
+
+// Task to create Windows installer package with auto-JRE download
+tasks.register('windowsInstallerPackage', Zip) {
+    dependsOn shadowJar
+    archiveBaseName = 'woodlanders-launcher-windows-installer'
+    archiveVersion = '0.1.0'
+    destinationDirectory = file("$buildDir/distributions")
+    
+    from(shadowJar.archiveFile) {
+        rename { 'woodlanders-launcher.jar' }
+    }
+    
+    from('src/main/scripts') {
+        include 'INSTALL.bat', 'windows-installer.ps1'
+        filter { line ->
+            line.replace('${VERSION}', '0.1.0')
+        }
+    }
+    
+    from('../icon') {
+        include '*.ico'
+    }
+    
+    from('../') {
+        include 'README.md'
+    }
+    
+    // Add installation instructions
+    from(file('src/main/scripts')) {
+        include 'INSTALLER_README.txt'
+        filter { line ->
+            line.replace('${VERSION}', '0.1.0')
+        }
+    }
+}
+
+// Task to create Linux distribution package  
+tasks.register('linuxPackage', Tar) {
+    dependsOn shadowJar
+    archiveBaseName = 'woodlanders-launcher-linux'
+    archiveVersion = '0.1.0'
+    archiveExtension = 'tar.gz'
+    compression = Compression.GZIP
+    destinationDirectory = file("$buildDir/distributions")
+    
+    from(shadowJar.archiveFile) {
+        rename { 'woodlanders-launcher.jar' }
+    }
+    
+    from('src/main/scripts') {
+        include '*.sh'
+        filePermissions {
+            unix(0755)
+        }
+    }
+    
+    from('../README.md')
+}
+
+// Task to build snap package
+tasks.register('snapPackage', Exec) {
+    group = 'distribution'
+    description = 'Builds the snap package using snapcraft'
+    
+    workingDir project.rootDir
+    
+    // Read version from snapcraft.yaml
+    def snapVersion = new File(project.rootDir, 'snapcraft.yaml')
+        .readLines()
+        .find { it.startsWith('version:') }
+        ?.split(':')[1]
+        ?.trim()
+        ?.replaceAll("'", "")
+        ?: '0.1.0'
+    
+    def outputPath = "app/build/distributions/woodlanders-launcher_${snapVersion}_amd64.snap"
+    
+    commandLine 'snapcraft', 'pack', 
+                "--output=${outputPath}",
+                '--destructive-mode'
+    
+    doFirst {
+        println "Building snap package..."
+        println "Output: ${outputPath}"
+    }
+    
+    doLast {
+        println "✓ Snap package created: ${outputPath}"
+    }
+    
+    // Only run if snapcraft is available
+    onlyIf {
+        try {
+            // Check if snapcraft command exists
+            def checkCmd = System.getProperty('os.name').toLowerCase().contains('windows') 
+                ? ['cmd', '/c', 'where', 'snapcraft']
+                : ['sh', '-c', 'command -v snapcraft']
+            
+            def process = checkCmd.execute()
+            process.waitFor()
+            
+            if (process.exitValue() == 0) {
+                logger.info("Snapcraft found, will build snap package")
+                return true
+            } else {
+                logger.warn("Snapcraft not found. Skipping snap package build.")
+                return false
+            }
+        } catch (Exception e) {
+            logger.warn("Could not detect snapcraft: ${e.message}")
+            return false
+        }
+    }
+}
+
+// Task to build all distribution packages
+tasks.register('buildAllPackages') {
+    dependsOn windowsPackage, windowsInstallerPackage, linuxPackage, snapPackage
+    group = 'distribution'
+    description = 'Builds all distribution packages including Windows installer and snap'
+    
+    doLast {
+        println "\n========================================="
+        println "Distribution packages created successfully!"
+        println "========================================="
+        println "Windows (Manual):     app/build/distributions/woodlanders-launcher-windows-0.1.0.zip"
+        println "Windows (Installer):  app/build/distributions/woodlanders-launcher-windows-installer-0.1.0.zip"
+        println "Linux (TAR.GZ):       app/build/distributions/woodlanders-launcher-linux-0.1.0.tar.gz"
+        
+        // Find snap file if it exists
+        def distDir = new File(project.projectDir, "build/distributions")
+        def snapFiles = distDir.exists() ? distDir.listFiles({ d, name -> 
+            name.endsWith('_amd64.snap') 
+        } as FilenameFilter) : []
+        
+        if (snapFiles && snapFiles.length > 0) {
+            println "Linux (Snap):         app/build/distributions/${snapFiles[0].name}"
+        } else {
+            println "Linux (Snap):         (skipped - snapcraft not available)"
+        }
+        
+        println "=========================================\n"
+    }
+}
+
+// Configure jlink for native installers with bundled Java
+jlink {
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+    launcher {
+        name = 'woodlanders-launcher'
+        jvmArgs = ['-Djavafx.cachedir=${USERPROFILE}\\.cache\\woodlanders-javafx']
+    }
+    
+    jpackage {
+        imageName = 'WoodlandersLauncher'
+        installerName = 'WoodlandersLauncher'
+        appVersion = '0.1.0'
+        vendor = 'Woodlanders'
+        
+        if (file('../icon/launcher.ico').exists()) {
+            icon = '../icon/launcher.ico'
+        }
+        
+        installerOptions = [
+            '--description', 'Woodlanders Game Launcher - Download and launch the Woodlanders game',
+            '--vendor', 'Woodlanders',
+            '--copyright', 'Copyright 2025 Woodlanders'
+        ]
+        
+        // Windows-specific settings
+        installerType = 'msi'  // or 'exe' - MSI is more professional
+        targetPlatformName = 'windows'
+        
+        def windowsOptions = [
+            '--win-per-user-install',
+            '--win-dir-chooser',
+            '--win-menu',
+            '--win-menu-group', 'Woodlanders',
+            '--win-shortcut',
+            '--win-shortcut-prompt'
+        ]
+        
+        if (file('../LICENSE').exists()) {
+            windowsOptions += ['--license-file', '../LICENSE']
+        }
+        
+        installerOptions.addAll(windowsOptions)
+    }
+}
+
+// Task to create Windows installer (MSI/EXE) with bundled Java
+tasks.register('windowsInstaller') {
+    group = 'distribution'
+    description = 'Creates a Windows MSI installer with bundled Java runtime'
+    
+    doLast {
+        println "\n========================================="
+        println "To build Windows installer with bundled JRE:"
+        println "========================================="
+        println "NOTE: jpackage requires platform-specific build."
+        println ""
+        println "Option 1 - Build on Windows (Recommended):"
+        println "  1. Transfer project to Windows machine"
+        println "  2. Run: gradle jpackage"
+        println "  3. Installer will be in: build/jpackage/"
+        println ""
+        println "Option 2 - Use Docker with Windows:"
+        println "  - Not practical for GUI apps with JavaFX"
+        println ""
+        println "Option 3 - Cross-compile (Complex):"
+        println "  - Requires WiX toolset and Windows SDK"
+        println "  - Not recommended for WSL/Linux"
+        println ""
+        println "For now, use the ZIP package or build on Windows."
+        println "=========================================\n"
+    }
 }
