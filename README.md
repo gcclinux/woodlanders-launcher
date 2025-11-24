@@ -106,6 +106,19 @@ If you explore, plant, test, nudge the edges, and tell us what you felt—you he
 2. **Extract** and run `INSTALL.bat`
 3. **Launch** from desktop shortcut or Start Menu
 
+### Windows un-install (Administrator PowerShell)
+
+```
+PowerShell 7.5.4
+PS C:\Windows\System32> 
+
+Remove-Item "$env:LOCALAPPDATA\Woodlanders" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:USERPROFILE\Desktop\Woodlanders Launcher.lnk" -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Woodlanders" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:USERPROFILE\.cache\woodlanders-javafx" -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "Clean uninstall complete" -ForegroundColor Green
+```
+
 The installer will automatically download Java if you don't have it installed.
 
 ### Windows (Manual — Java Required)

@@ -1,4 +1,4 @@
-# Woodlanders Launcher - Windows Installer with JRE Auto-Download
+﻿# Woodlanders Launcher - Windows Installer with JRE Auto-Download
 # Version: ${VERSION}
 
 param(
@@ -16,8 +16,8 @@ $JRE_DIR = "$INSTALL_DIR\jre"
 $DESKTOP_SHORTCUT = "$env:USERPROFILE\Desktop\Woodlanders Launcher.lnk"
 $START_MENU_DIR = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Woodlanders"
 
-# Adoptium (Eclipse Temurin) JRE download URLs
-$JRE_DOWNLOAD_URL = "https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse"
+# Liberica JDK Full (includes JavaFX) download URL
+$JRE_DOWNLOAD_URL = "https://download.bell-sw.com/java/21.0.5+11/bellsoft-jdk21.0.5+11-windows-amd64-full.zip"
 
 function Write-Status {
     param([string]$Message)
@@ -54,7 +54,18 @@ function Test-JavaInstalled {
 }
 
 function Download-JRE {
-    Write-Status "Java 21+ not found. Downloading bundled JRE..."
+    Write-Status "Java 21+ not found. Downloading bundled JDK with JavaFX..."
+    
+    # Check if JRE is already installed
+    if (Test-Path "$JRE_DIR\bin\java.exe") {
+        Write-Success "JDK already installed"
+        return $true
+    }
+    
+    # Clean up any previous failed installation
+    if (Test-Path $JRE_DIR) {
+        Remove-Item $JRE_DIR -Recurse -Force -ErrorAction SilentlyContinue
+    }
     
     # Create JRE directory
     New-Item -ItemType Directory -Force -Path $JRE_DIR | Out-Null
@@ -62,30 +73,34 @@ function Download-JRE {
     $jreZip = "$env:TEMP\woodlanders-jre.zip"
     
     try {
-        Write-Status "Downloading JRE $JRE_VERSION (this may take a few minutes)..."
+        Write-Status "Downloading JDK $JRE_VERSION with JavaFX (this may take a few minutes)..."
         
         # Download JRE
         $ProgressPreference = 'SilentlyContinue'
         Invoke-WebRequest -Uri $JRE_DOWNLOAD_URL -OutFile $jreZip -UseBasicParsing
         $ProgressPreference = 'Continue'
         
-        Write-Status "Extracting JRE..."
-        Expand-Archive -Path $jreZip -DestinationPath "$JRE_DIR\temp" -Force
+        Write-Status "Extracting JDK..."
+        $tempExtract = "$env:TEMP\woodlanders-jre-extract"
+        if (Test-Path $tempExtract) {
+            Remove-Item $tempExtract -Recurse -Force
+        }
+        Expand-Archive -Path $jreZip -DestinationPath $tempExtract -Force
         
-        # Find the extracted JRE directory (usually has a version number)
-        $extractedDir = Get-ChildItem -Path "$JRE_DIR\temp" -Directory | Select-Object -First 1
+        # Find the extracted JDK directory (usually has a version number)
+        $extractedDir = Get-ChildItem -Path $tempExtract -Directory | Select-Object -First 1
         
         # Move contents to JRE_DIR
         Get-ChildItem -Path $extractedDir.FullName | Move-Item -Destination $JRE_DIR -Force
         
         # Cleanup
-        Remove-Item "$JRE_DIR\temp" -Recurse -Force
+        Remove-Item $tempExtract -Recurse -Force
         Remove-Item $jreZip -Force
         
-        Write-Success "JRE downloaded and installed"
+        Write-Success "JDK with JavaFX downloaded and installed"
         return $true
     } catch {
-        Write-Error-Message "Failed to download JRE: $_"
+        Write-Error-Message "Failed to download JDK: $_"
         return $false
     }
 }
@@ -97,13 +112,13 @@ function Install-Application {
     New-Item -ItemType Directory -Force -Path $INSTALL_DIR | Out-Null
     
     # Copy application files
-    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
     
     if (Test-Path "$scriptDir\woodlanders-launcher.jar") {
         Copy-Item "$scriptDir\woodlanders-launcher.jar" -Destination $INSTALL_DIR -Force
         Write-Success "Application files copied"
     } else {
-        Write-Error-Message "Application JAR not found!"
+        Write-Error-Message "Application JAR not found in: $scriptDir"
         return $false
     }
     
@@ -116,7 +131,7 @@ function Install-Application {
 }
 
 function Create-LauncherScript {
-    $launcherScript = @"
+    $launcherScript = @'
 @echo off
 setlocal
 
@@ -130,14 +145,14 @@ if exist "%APP_DIR%jre\bin\java.exe" (
 )
 
 "%JAVA_CMD%" -Djavafx.cachedir="%JAVAFX_CACHE%" -jar "%APP_DIR%woodlanders-launcher.jar"
-
 if %ERRORLEVEL% neq 0 (
+    echo.
     echo Application failed to start.
     pause
 )
 
 endlocal
-"@
+'@
     
     $launcherScript | Out-File -FilePath "$INSTALL_DIR\launcher.bat" -Encoding ASCII -Force
     Write-Success "Launcher script created"
@@ -186,7 +201,12 @@ function Show-CompletionMessage {
     if (-not $Silent) {
         $launch = Read-Host "Launch now? (Y/n)"
         if ($launch -ne 'n' -and $launch -ne 'N') {
-            Start-Process "$INSTALL_DIR\launcher.bat"
+            Write-Host ""
+            Write-Host "Launching $APP_NAME..." -ForegroundColor Cyan
+            # Use cmd /c to launch the batch file and detach from PowerShell
+            $process = Start-Process -FilePath "$INSTALL_DIR\launcher.bat" -PassThru
+            Start-Sleep -Seconds 2
+            Write-Host "Launcher started. You can close this window." -ForegroundColor Green
         }
     }
 }
