@@ -9,8 +9,12 @@ plugins {
     // Apply the application plugin to add support for building a CLI + GUI application in Java.
     id 'application'
     id 'org.openjfx.javafxplugin' version '0.1.0'
-    id 'com.gradleup.shadow' version '8.3.5'
     id 'org.beryx.jlink' version '3.0.1'
+}
+
+// Compatibility alias for plugins expecting the deprecated 'mainClassName' property (removed in newer Gradle versions)
+ext {
+    mainClassName = 'com.woodlanders.launcher.ui.LauncherApplication'
 }
 
 repositories {
@@ -80,33 +84,31 @@ tasks.named('test') {
 }
 
 // Configure shadow JAR (fat JAR with all dependencies)
-shadowJar {
+// Configure jar task to build a fat jar (replacement for shadowJar to avoid Gradle 9 mainClassName issue)
+jar {
     archiveBaseName = 'woodlanders-launcher'
-    archiveClassifier = ''
     archiveVersion = '0.1.0'
-    
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes(
             'Main-Class': 'com.woodlanders.launcher.ui.LauncherApplication',
             'Multi-Release': 'true'
         )
     }
-    
-    // Exclude signature files to avoid security exceptions
+    from {
+        configurations.runtimeClasspath.filter { it.name.endsWith('.jar') }.collect { zipTree(it) }
+    }
     exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'
-    
-    // Merge service files
-    mergeServiceFiles()
 }
 
 // Task to create Windows distribution package
 tasks.register('windowsPackage', Zip) {
-    dependsOn shadowJar
+    dependsOn jar
     archiveBaseName = 'woodlanders-launcher-windows'
     archiveVersion = '0.1.0'
     destinationDirectory = file("$buildDir/distributions")
     
-    from(shadowJar.archiveFile) {
+    from(jar.archiveFile) {
         rename { 'woodlanders-launcher.jar' }
     }
     
@@ -128,12 +130,12 @@ tasks.register('windowsPackage', Zip) {
 
 // Task to create Windows installer package with auto-JRE download
 tasks.register('windowsInstallerPackage', Zip) {
-    dependsOn shadowJar
+    dependsOn jar
     archiveBaseName = 'woodlanders-launcher-windows-installer'
     archiveVersion = '0.1.0'
     destinationDirectory = file("$buildDir/distributions")
     
-    from(shadowJar.archiveFile) {
+    from(jar.archiveFile) {
         rename { 'woodlanders-launcher.jar' }
     }
     
@@ -163,14 +165,14 @@ tasks.register('windowsInstallerPackage', Zip) {
 
 // Task to create Linux distribution package  
 tasks.register('linuxPackage', Tar) {
-    dependsOn shadowJar
+    dependsOn jar
     archiveBaseName = 'woodlanders-launcher-linux'
     archiveVersion = '0.1.0'
     archiveExtension = 'tar.gz'
     compression = Compression.GZIP
     destinationDirectory = file("$buildDir/distributions")
     
-    from(shadowJar.archiveFile) {
+    from(jar.archiveFile) {
         rename { 'woodlanders-launcher.jar' }
     }
     
