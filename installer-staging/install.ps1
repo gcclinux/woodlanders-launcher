@@ -43,9 +43,10 @@ function Download-JRE {
     $jreZip = "$env:TEMP\woodlanders-jre.zip"
     try {
         Write-Status "Downloading JDK (this may take a few minutes)..."
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $JRE_DOWNLOAD_URL -OutFile $jreZip -UseBasicParsing
+        Write-Host "Download URL: $JRE_DOWNLOAD_URL" -ForegroundColor Gray
         $ProgressPreference = 'Continue'
+        Invoke-WebRequest -Uri $JRE_DOWNLOAD_URL -OutFile $jreZip -UseBasicParsing
+        $ProgressPreference = 'SilentlyContinue'
         Write-Status "Extracting JDK..."
         $tempExtract = "$env:TEMP\woodlanders-jre-extract"
         if (Test-Path $tempExtract) { Remove-Item $tempExtract -Recurse -Force }
@@ -141,10 +142,7 @@ try {
     Write-Host "Installed to: $INSTALL_DIR"
     Write-Host ""
     if (-not $Silent) {
-        $launch = Read-Host "Launch now? (Y/n)"
-        if ($launch -ne 'n' -and $launch -ne 'N') {
-            Start-Process -FilePath "$INSTALL_DIR\launcher.bat"
-        }
+        Start-Process -FilePath "$INSTALL_DIR\launcher.bat"
     }
 } catch {
     Write-Host ""
