@@ -18,9 +18,11 @@ OutputBaseFilename={#MyAppExeName}
 Compression=lzma
 SolidCompression=yes
 PrivilegesRequired=lowest
+DisableProgramGroupPage=yes
 DisableDirPage=yes
 DisableReadyMemo=yes
 DisableReadyPage=yes
+DisableWelcomePage=no
 DisableFinishedPage=no
 SetupLogging=yes
 
@@ -32,14 +34,14 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "..\build\distributions\woodlanders-setup-launcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; Include the launcher JAR so it's available for installation
 Source: "..\build\distributions\woodlanders-launcher.jar"; DestDir: "{app}"; Flags: ignoreversion
+
 [Run]
 ; Run silent installer after copying files - it will request admin itself via UAC
-Filename: "{app}\\woodlanders-setup-launcher.exe"; Parameters: "-Silent"; Flags: postinstall skipifsilent shellexec
+Filename: "{app}\\woodlanders-setup-launcher.exe"; Parameters: "-Silent"; Description: "Launch {#MyAppName}"; Flags: postinstall skipifsilent shellexec nowait
 
 [Icons]
-; Shortcuts created by the PowerShell installer point to the real launcher in %LOCALAPPDATA%\Woodlanders\Launcher
-; These entries are just for the installer itself if you want them
-Name: "{group}\Woodlanders Launcher Installer"; Filename: "{app}\woodlanders-setup-launcher.exe"; WorkingDir: "{app}"; Flags: preventpinning
+; Shortcuts are created by the PowerShell installer script, not by Inno Setup
+; The PowerShell script creates them pointing to the correct launcher.bat location
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
