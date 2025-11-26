@@ -183,6 +183,96 @@ jobs:
               Write-Error "Installer EXE not found!"
               exit 1
           }
+
+      - name: Generate release notes
+        run: |
+          $notes = @'
+          # 🌲 Woodlanders – Early Alpha: The Beginning
+
+          > 💬 Status: **Earliest Alpha Phase**  
+          > 🔁 Updates: **Daily / Evening incremental builds**  
+          > 📥 Installer: **Single download – auto-update enabled**  
+          > 🗺️ Story Mode: **Not yet implemented**  
+          > 🧪 Your Role: Explorer, tester, trail maker
+
+          ---
+
+          ## 🎬 Opening
+
+          You wake beneath a quiet pixel sky—no prophecy to follow, no quest log to obey—just wind over grass, rain that sometimes drifts in, birds crossing the horizon, and a compass that remembers where you began. This is Woodlanders in its earliest form: an open, living sandbox still knitting itself together night by night.
+
+          ---
+
+          ## 🚧 What Doesn’t Exist Yet
+
+          - No scripted lore  
+          - No story campaign  
+          - No endgame arc  
+
+          Instead: a procedural world, emerging systems, trees that fall and return, hunger that presses forward, bamboo that begins as a promise and grows if you give it time.
+
+          > Every mechanic you touch is a foundation stone.  
+          > Every small imperfection is an invitation.
+
+          ---
+
+          ## 🛠️ How Builds Work
+
+          - 🧩 Minimal installer: one download  
+          - 🔍 Auto-checks for new versions  
+          - 🌒 Evening + daily pushes: sometimes subtle tuning, sometimes new possibilities  
+          - 🧭 You’re ahead of the map—your feedback carves the path
+
+          ---
+
+          ## 🌱 What to Expect
+
+          | Don’t Expect | Do Expect |
+          |--------------|-----------|
+          | Polish        | Potential |
+          | Finished loops | Change |
+          | Full narrative | Emergence |
+          | Packed world | Quiet moments |
+
+          Moments where the world feels sparse—and others where sudden rain or a line of birds makes it feel briefly alive. That contrast is the frontier.
+
+          ---
+
+          ## 🤝 Your Impact
+
+          If you explore, plant, test, nudge the edges, and tell us what you felt—you help shape what comes next:
+
+          - 🔨 Crafting  
+          - 🏗️ Building  
+          - 🌅 Day/Night cycle  
+          - 🐾 Creatures  
+          - 🔊 Sound & ambience  
+          - 📖 Future story arcs  
+
+          Woodlanders isn’t finished—it’s becoming.
+
+          ---
+
+          ## 🧭 Join the Dawn
+
+          > Join early. Wander freely. Grow it with us.
+
+          ---
+
+          ### 🔖 Tagline
+
+          **Woodlanders:** Not a story yet—just the dawn before one.
+
+          ---
+
+          > 🐦 Optional Share Snippet:  
+          > “I’m playing Woodlanders in its alpha dawn—no story yet, just systems waking up. Exploring while it learns to become a world.”
+
+          ## Quick Start
+
+          [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/woodlanders-launcher)
+          '@
+          $notes | Out-File -FilePath build\distributions\RELEASE_NOTES.md -Encoding UTF8
       
       - name: Get tag name
         id: get_tag
@@ -204,6 +294,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.get_tag.outputs.tag_name }}
+          body_path: build/distributions/RELEASE_NOTES.md
           files: |
             build/distributions/woodlanders-launcher-installer.zip
         env:
