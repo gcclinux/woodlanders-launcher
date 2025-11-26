@@ -106,29 +106,32 @@ If you explore, plant, test, nudge the edges, and tell us what you felt—you he
 
 ### Windows (Recommended)
 
-1. **Download** the installer package:
-   - [`woodlanders-launcher-windows-installer-0.1.0.zip`](https://github.com/gcclinux/woodlanders-launcher/releases/latest)
-2. **Extract** and run `INSTALL.bat`
-3. **Launch** from desktop shortcut or Start Menu
+1. **Download** the latest installer ZIP from Releases:
+  - https://github.com/gcclinux/woodlanders-launcher/releases/latest
+2. **Extract** the ZIP
+3. **Install** by either:
+  - Double‑clicking `woodlanders-setup-launcher.exe` (recommended), or
+  - Right‑click `install.ps1` → Run with PowerShell
+4. **Launch** from the desktop shortcut or Start Menu
 
-### Windows un-install (Administrator PowerShell)
+### Windows Uninstall
 
-```
-PowerShell 7.5.4
-PS C:\Windows\System32> 
-
-Remove-Item "$env:LOCALAPPDATA\Woodlanders" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item "$env:USERPROFILE\Desktop\Woodlanders Launcher.lnk" -Force -ErrorAction SilentlyContinue
-Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Woodlanders" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item "$env:USERPROFILE\.cache\woodlanders-javafx" -Recurse -Force -ErrorAction SilentlyContinue
-Write-Host "Clean uninstall complete" -ForegroundColor Green
-```
+- Preferred: Double‑click `woodlanders-uninstall.exe` (included in the installer ZIP)
+- Alternative: Right‑click `uninstall.ps1` → Run with PowerShell
+- Manual cleanup (fallback):
+  ```powershell
+  Remove-Item "$env:LOCALAPPDATA\Woodlanders" -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item "$env:USERPROFILE\Desktop\Woodlanders Launcher.lnk" -Force -ErrorAction SilentlyContinue
+  Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Woodlanders" -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item "$env:USERPROFILE\.cache\woodlanders-javafx" -Recurse -Force -ErrorAction SilentlyContinue
+  Write-Host "Clean uninstall complete" -ForegroundColor Green
+  ```
 
 The installer will automatically download Java if you don't have it installed.
 
 ### Windows (Manual — Java Required)
 
-1. **Download**: [`woodlanders-launcher-windows-0.1.0.zip`](https://github.com/gcclinux/woodlanders-launcher/releases/latest)
+1. **Download**: Manual ZIP from the latest release
 2. **Require**: Java 21+ from [adoptium.net](https://adoptium.net/)
 3. **Extract** and double-click `launcher.bat`
 

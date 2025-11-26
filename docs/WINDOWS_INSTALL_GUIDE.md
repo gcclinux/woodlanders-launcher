@@ -11,14 +11,15 @@
 
 ### Installation Steps:
 
-1. **Download** the installer package:
-   - `woodlanders-launcher-windows-installer-0.1.0.zip`
+1. **Download** the installer package from Releases:
+  - https://github.com/gcclinux/woodlanders-launcher/releases/latest
 
 2. **Extract** the ZIP file to any folder (e.g., Downloads)
 
 3. **Run the installer**:
-   - Double-click `INSTALL.bat`
-   - The installer will:
+  - Double-click `woodlanders-setup-launcher.exe` (recommended), or
+  - Right-click `install.ps1` → Run with PowerShell
+  - The installer will:
      ✓ Check if Java is installed
      ✓ Download Java automatically if needed (~50-80 MB)
      ✓ Install the launcher to `%LOCALAPPDATA%\Woodlanders\Launcher`
@@ -50,10 +51,12 @@ Done! Launch app
 - Internet connection (only for initial Java download if needed)
 
 ### Uninstallation:
-To uninstall, delete these folders:
-- `%LOCALAPPDATA%\Woodlanders\Launcher`
-- Desktop shortcut
-- `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Woodlanders`
+- Preferred: Double‑click `woodlanders-uninstall.exe` (included in the installer ZIP)
+- Alternative: Right‑click `uninstall.ps1` → Run with PowerShell
+- Manual cleanup (fallback):
+  - `%LOCALAPPDATA%\Woodlanders\Launcher`
+  - Desktop shortcut
+  - `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Woodlanders`
 
 ---
 
@@ -61,7 +64,7 @@ To uninstall, delete these folders:
 
 If you prefer manual control or the automatic installer doesn't work:
 
-1. Download `woodlanders-launcher-windows-0.1.0.zip`
+1. Download the manual Windows ZIP from the latest release
 2. Install Java 17+ from https://adoptium.net/
 3. Extract the ZIP and double-click `launcher.bat`
 
