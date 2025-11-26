@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.gcclinux.woodlanders.launcher</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Woodlanders Launcher</name>
+  <summary>Woodlanders game launcher and updater</summary>
+  <description>
+    <p>
+      Desktop launcher for the Woodlanders Single and Multiplayer Adventure game.
+      It checks GitHub for the latest client release, downloads it into your home directory,
+      and launches the game with a single button.
+    </p>
+  </description>
+  
+  <launchable type="desktop-id">io.github.gcclinux.woodlanders.launcher.desktop</launchable>
+  
+  <url type="homepage">https://gcclinux.github.io/woodlanders/</url>
+  <url type="bugtracker">https://github.com/gcclinux/Woodlanders/issues</url>
+  <url type="help">https://github.com/gcclinux/woodlanders/discussions</url>
+  <url type="donation">https://www.buymeacoffee.com/gcclinux</url>
+  
+  <developer_name>gcclinux</developer_name>
+  
+  <categories>
+    <category>Game</category>
+  </categories>
+  
+  <releases>
+    <release version="0.1.0" date="2025-11-26">
+      <description>
+        <p>Initial release of Woodlanders Launcher</p>
+      </description>
+    </release>
+  </releases>
+  
+  <screenshots>
+    <screenshot type="default">
+      <caption>Woodlanders Launcher main window</caption>
+    </screenshot>
+  </screenshots>
+  
+  <content_rating type="oars-1.1" />
+</component>

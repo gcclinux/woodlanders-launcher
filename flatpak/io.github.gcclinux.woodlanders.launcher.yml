@@ -1,0 +1,56 @@
+app-id: io.github.gcclinux.woodlanders.launcher
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: /app/woodlanders-launcher/bin/app
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=home
+  - --env=JAVA_HOME=/app/jre
+  - --env=PATH=/app/jre/bin:/usr/bin:/bin
+
+modules:
+  - name: openjdk-jfx
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/jre
+      # Extract OpenJDK JDK (needed for Gradle build)
+      - tar -xzf openjdk-jdk.tar.gz --strip-components=1 -C /app/jre
+      # Extract JavaFX and copy to JDK
+      - unzip -q javafx-sdk.zip
+      - cp -r javafx-sdk-*/lib/* /app/jre/lib/
+    sources:
+      # OpenJDK 21 JDK from Adoptium (Temurin) - full JDK for Gradle
+      - type: file
+        url: https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_x64_linux_hotspot_21.0.5_11.tar.gz
+        sha256: 3c654d98404c073b8a7e66bffb27f4ae3e7ede47d13284c132d40a83144bfd8c
+        dest-filename: openjdk-jdk.tar.gz
+      # JavaFX 21.0.4 SDK from Gluon
+      - type: file
+        url: https://download2.gluonhq.com/openjfx/21.0.4/openjfx-21.0.4_linux-x64_bin-sdk.zip
+        sha256: 110259a41bbc3c6d9d477b753d3ff7337ee78bc40b06405c40ddb6a68da748d4
+        dest-filename: javafx-sdk.zip
+
+  - name: woodlanders-launcher
+    buildsystem: simple
+    build-options:
+      env:
+        JAVA_HOME: /app/jre
+      build-args:
+        - --share=network
+    build-commands:
+      - chmod +x gradlew
+      - ./gradlew :app:installDist --no-daemon
+      - mkdir -p /app/woodlanders-launcher
+      - cp -r app/build/install/app/* /app/woodlanders-launcher/
+      - install -D flatpak/io.github.gcclinux.woodlanders.launcher.png /app/share/icons/hicolor/512x512/apps/io.github.gcclinux.woodlanders.launcher.png
+      - install -D flatpak/io.github.gcclinux.woodlanders.launcher.desktop /app/share/applications/io.github.gcclinux.woodlanders.launcher.desktop
+      - install -D flatpak/io.github.gcclinux.woodlanders.launcher.metainfo.xml /app/share/metainfo/io.github.gcclinux.woodlanders.launcher.metainfo.xml
+    sources:
+      - type: dir
+        path: ../

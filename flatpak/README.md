@@ -14,13 +14,15 @@ sudo apt install flatpak flatpak-builder
 sudo dnf install flatpak flatpak-builder
 ```
 
-You also need to install the Freedesktop SDK and the OpenJDK extension:
+You also need to add Flathub and install the Freedesktop runtime:
 
 ```bash
-flatpak install org.freedesktop.Sdk//24.08
-flatpak install org.freedesktop.Platform//24.08
-flatpak install org.freedesktop.Sdk.Extension.openjdk21//24.08
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+flatpak install flathub org.freedesktop.Platform//24.08
+flatpak install flathub org.freedesktop.Sdk//24.08
 ```
+
+**Note:** The JRE is bundled directly in the Flatpak, so no additional Java runtime installation is required.
 
 ## Building and Installing
 

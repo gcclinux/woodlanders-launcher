@@ -6,4 +6,5 @@ export PATH=$JAVA_HOME/bin:$PATH
 
 # Launch the application
 # The application is installed in /app/woodlanders-launcher
-exec /app/woodlanders-launcher/bin/woodlanders-launcher "$@"
+# Gradle installDist creates the launcher script named after the project (app)
+exec /app/woodlanders-launcher/bin/app "$@"
