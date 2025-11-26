@@ -1,6 +1,6 @@
 name: woodlanders-launcher
 base: core24
-version: 0.1.0
+version: 0.1.1
 summary: Woodlanders game launcher and updater
 description: |
   Desktop launcher for the Woodlanders Single and Multiplayer Adventure game. It checks GitHub for the
