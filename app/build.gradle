@@ -87,7 +87,8 @@ tasks.named('test') {
 // Configure jar task to build a fat jar (replacement for shadowJar to avoid Gradle 9 mainClassName issue)
 jar {
     archiveBaseName = 'woodlanders-launcher'
-    archiveVersion = '0.1.0'
+    // Produce a stable jar name without version suffix
+    archiveVersion = ''
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes(

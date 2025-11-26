@@ -1,0 +1,217 @@
+name: Build Launcher Installer (Standalone)
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for manual release'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-launcher-installer:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+      
+      - name: Build Launcher JAR
+        run: gradle :app:jar -x test --no-daemon
+      
+      - name: Create installer directory structure
+        run: |
+          New-Item -ItemType Directory -Force -Path installer-staging
+          New-Item -ItemType Directory -Force -Path build\distributions
+      
+      - name: Copy launcher JAR and icon to staging
+        run: |
+          $direct = Join-Path app\build\libs woodlanders-launcher.jar
+          if (Test-Path $direct) {
+            Copy-Item $direct -Destination installer-staging\woodlanders-launcher.jar
+          } else {
+            $jar = Get-ChildItem app\build\libs -Filter "woodlanders-launcher-*.jar" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if (-not $jar) { Write-Error "Launcher JAR not found in app\\build\\libs"; exit 1 }
+            Copy-Item $jar.FullName -Destination installer-staging\woodlanders-launcher.jar
+          }
+          if (Test-Path icon\icon.ico) {
+            Copy-Item icon\icon.ico -Destination installer-staging\launcher.ico
+          } elseif (Test-Path icon\icon.png) {
+            Copy-Item icon\icon.png -Destination installer-staging\launcher.png
+          }
+      
+      - name: Create installer script from template
+        run: |
+          # Use the template file from the repo
+          $scriptContent = Get-Content -Path .github\scripts\windows-installer-template.ps1 -Raw
+          
+          # Replace version placeholder
+          $scriptContent = $scriptContent -replace '\$\{VERSION\}', '${{ github.ref_name }}'
+          
+          # Save the processed script
+          $scriptContent | Out-File -FilePath installer-staging\install.ps1 -Encoding UTF8
+      
+      - name: Create README for installer
+        run: |
+          $readmeLines = @(
+            "# Woodlanders Launcher Installer",
+            "",
+            "## Installation Instructions",
+            "",
+            "IMPORTANT: Extract the entire ZIP file before running the installer.",
+            "The installer needs all files in the same folder to work correctly.",
+            "",
+            "### Option 1: Run the EXE (Recommended)",
+            "1. Extract the ZIP file",
+            "2. Double-click woodlanders-setup-launcher.exe",
+            "3. Follow the prompts",
+            "",
+            "### Option 2: Run PowerShell Script",
+            "1. Extract the ZIP file",
+            "2. Right-click install.ps1",
+            "3. Select Run with PowerShell",
+            "",
+            "## What Gets Installed",
+            "",
+            "- Woodlanders Launcher application",
+            "- Java 21 with JavaFX (if not already installed)",
+            "- Desktop shortcut with icon",
+            "- Start Menu entry with icon",
+            "",
+            "## Installation Location",
+            "",
+            "%LOCALAPPDATA%\Woodlanders\Launcher",
+            "",
+            "## Features",
+            "",
+            "- Auto-updates game from GitHub releases",
+            "- Multi-language support (EN, PL, PT, NL, DE)",
+            "- Offline mode support",
+            "- No manual Java installation required",
+            "",
+            "## Uninstallation",
+            "",
+            "To uninstall:",
+            "1. Delete: %LOCALAPPDATA%\Woodlanders\Launcher",
+            "2. Delete desktop shortcut",
+            "3. Delete: %APPDATA%\Microsoft\Windows\Start Menu\Programs\Woodlanders",
+            "",
+            "## Troubleshooting",
+            "",
+            "If the installer fails:",
+            "- Ensure all files from the ZIP are in the same folder",
+            "- Check internet connection for first-time setup",
+            "- Check Windows Defender is not blocking the installer",
+            "- Run the installer as Administrator",
+            "",
+            "For help: https://github.com/gcclinux/Woodlanders"
+          )
+          $readmeLines -join "`r`n" | Out-File -FilePath installer-staging\README.txt -Encoding UTF8
+      
+      - name: Install ps2exe
+        run: |
+          Install-Module -Name ps2exe -Force -Scope CurrentUser -AllowClobber
+      
+      - name: Convert PowerShell scripts to EXE
+        run: |
+          Import-Module ps2exe
+          Invoke-ps2exe `
+            -inputFile installer-staging\install.ps1 `
+            -outputFile build\distributions\woodlanders-setup-launcher.exe `
+            -title "Woodlanders Launcher Installer" `
+            -description "Woodlanders Game Launcher Installer" `
+            -company "Ricardo Wagemaker" `
+            -product "Woodlanders Launcher" `
+            -copyright "Copyright (c) 2025 Ricardo Wagemaker" `
+            -version "1.0.0.0" `
+            -requireAdmin `
+            -noConsole:$false
+
+          Invoke-ps2exe `
+            -inputFile windows\uninstall.ps1 `
+            -outputFile build\distributions\woodlanders-uninstall.exe `
+            -title "Woodlanders Launcher Uninstaller" `
+            -description "Uninstall Woodlanders Game Launcher" `
+            -company "Ricardo Wagemaker" `
+            -product "Woodlanders Launcher" `
+            -copyright "Copyright (c) 2025 Ricardo Wagemaker" `
+            -version "1.0.0.0" `
+            -requireAdmin `
+            -noConsole:$false
+      
+      - name: Create distribution package with all installer files
+        run: |
+          Copy-Item installer-staging\woodlanders-launcher.jar -Destination build\distributions\ -Force
+          Copy-Item installer-staging\launcher.ico -Destination build\distributions\ -Force -ErrorAction SilentlyContinue
+          Copy-Item installer-staging\install.ps1 -Destination build\distributions\ -Force
+          Copy-Item installer-staging\README.txt -Destination build\distributions\ -Force
+          Copy-Item windows\uninstall.ps1 -Destination build\distributions\ -Force
+          
+          $zipFiles = @(
+            "build\distributions\woodlanders-setup-launcher.exe",
+            "build\distributions\woodlanders-uninstall.exe",
+            "build\distributions\woodlanders-launcher.jar",
+            "build\distributions\launcher.ico",
+            "build\distributions\install.ps1",
+            "build\distributions\uninstall.ps1",
+            "build\distributions\README.txt"
+          )
+          $zipFiles = $zipFiles | Where-Object { Test-Path $_ }
+          Compress-Archive -Path $zipFiles -DestinationPath build\distributions\woodlanders-launcher-installer.zip -Force
+      
+      - name: Verify installer was created
+        run: |
+          if (Test-Path build\distributions\woodlanders-setup-launcher.exe) {
+              Write-Host "✓ Installer EXE created successfully" -ForegroundColor Green
+              Get-Item build\distributions\woodlanders-setup-launcher.exe
+          } else {
+              Write-Error "Installer EXE not found!"
+              exit 1
+          }
+      
+      - name: Get tag name
+        id: get_tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME=${GITHUB_REF#refs/tags/}
+            echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "is_tag=true" >> $GITHUB_OUTPUT
+          elif [ -n "${{ github.event.inputs.tag_name }}" ]; then
+            echo "tag_name=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+            echo "is_tag=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_tag=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Upload to existing release
+        if: steps.get_tag.outputs.is_tag == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_tag.outputs.tag_name }}
+          files: |
+            build/distributions/woodlanders-launcher-installer.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload artifacts as backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-installer
+          path: build/distributions/woodlanders-launcher-installer.zip
+          retention-days: 90

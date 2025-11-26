@@ -8,7 +8,7 @@ Write-Host "  Woodlanders Launcher Installer Builder" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Step 1: Build the launcher JAR via Gradle app project
+# Step 1: Build the launcher JAR
 Write-Host "[1/7] Building launcher JAR..." -ForegroundColor Yellow
 gradle :app:jar -x test --no-daemon
 if ($LASTEXITCODE -ne 0) {
@@ -27,18 +27,28 @@ Write-Host ""
 
 # Step 3: Copy launcher JAR and icon
 Write-Host "[3/7] Copying launcher JAR and icon to staging..." -ForegroundColor Yellow
-if (Test-Path app\build\libs\woodlanders-launcher-0.1.0.jar) {
-    Copy-Item app\build\libs\woodlanders-launcher-0.1.0.jar -Destination installer-staging\woodlanders-launcher.jar
-    Write-Host "Launcher JAR copied" -ForegroundColor Green
+$directJar = Join-Path "app\build\libs" "woodlanders-launcher.jar"
+if (Test-Path $directJar) {
+    Copy-Item $directJar -Destination "installer-staging\woodlanders-launcher.jar" -Force
+    Write-Host "Launcher JAR copied (woodlanders-launcher.jar)" -ForegroundColor Green
 } else {
-    Write-Host "Launcher JAR not found!" -ForegroundColor Red
-    exit 1
+    $jarCandidate = Get-ChildItem -Path "app\build\libs" -Filter "woodlanders-launcher-*.jar" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($jarCandidate -and (Test-Path $jarCandidate.FullName)) {
+        Copy-Item $jarCandidate.FullName -Destination "installer-staging\woodlanders-launcher.jar" -Force
+        Write-Host "Launcher JAR copied from $($jarCandidate.Name)" -ForegroundColor Green
+    } else {
+        Write-Host "Launcher JAR not found in app\\build\\libs" -ForegroundColor Red
+        exit 1
+    }
 }
 
-# Copy icon if it exists (rename to match template expectations)
-if (Test-Path assets\icon\icon.png) {
-    Copy-Item assets\icon\icon.png -Destination installer-staging\launcher.ico
-    Write-Host "Icon copied" -ForegroundColor Green
+# Copy icon (use .ico for Windows)
+if (Test-Path icon\icon.ico) {
+    Copy-Item icon\icon.ico -Destination installer-staging\launcher.ico -Force
+    Write-Host "Icon copied (.ico)" -ForegroundColor Green
+} elseif (Test-Path icon\icon.png) {
+    Copy-Item icon\icon.png -Destination installer-staging\launcher.png -Force
+    Write-Host "Icon copied (.png)" -ForegroundColor Green
 } else {
     Write-Host "Icon not found (optional)" -ForegroundColor Yellow
 }
@@ -52,16 +62,10 @@ $installerScriptPath = "installer-staging\install.ps1"
 $installerContent = Get-Content -Path ".github\scripts\windows-installer-template.ps1" -Raw -ErrorAction SilentlyContinue
 
 if ($installerContent) {
-    # Use the existing script as template and patch it for ps2exe compatibility
+    # Use the existing script as template and set local version
     $installerContent = $installerContent -replace '\$\{VERSION\}', 'LOCAL-BUILD'
-    
-    # Fix $scriptDir to work with ps2exe compiled EXE
-    # Replace the line that sets $scriptDir with a version that works in compiled EXE
-    # When compiled with ps2exe, use the current directory where the EXE is located
-    $installerContent = $installerContent -replace '\$scriptDir = if \(\$PSScriptRoot\) \{ \$PSScriptRoot \} else \{ Split-Path -Parent \$MyInvocation\.MyCommand\.Path \}', '$scriptDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { Get-Location | Select-Object -ExpandProperty Path }'
-    
     $installerContent | Out-File -FilePath $installerScriptPath -Encoding UTF8
-    Write-Host "Installer script created from GitHub template (patched for EXE)" -ForegroundColor Green
+    Write-Host "Installer script created from GitHub template" -ForegroundColor Green
 } else {
     # Create a new installer script
     Write-Host "Creating new installer script..." -ForegroundColor Gray
@@ -74,20 +78,10 @@ $ErrorActionPreference = "Stop"
 
 $APP_NAME = "Woodlanders Launcher"
 $APP_VERSION = "LOCAL-BUILD"
-
-# Resolve key user folders robustly to avoid null Path arguments
-$localAppData = [Environment]::GetFolderPath('LocalApplicationData')
-$userProfile  = [Environment]::GetFolderPath('UserProfile')
-$appData      = [Environment]::GetFolderPath('ApplicationData')
-
-if (-not $localAppData) { throw "LOCALAPPDATA could not be resolved" }
-if (-not $userProfile)  { throw "USERPROFILE could not be resolved" }
-if (-not $appData)      { throw "APPDATA could not be resolved" }
-
-$INSTALL_DIR      = Join-Path $localAppData 'Woodlanders\Launcher'
-$JRE_DIR          = Join-Path $INSTALL_DIR 'jre'
-$DESKTOP_SHORTCUT = Join-Path (Join-Path $userProfile 'Desktop') 'Woodlanders Launcher.lnk'
-$START_MENU_DIR   = Join-Path $appData 'Microsoft\Windows\Start Menu\Programs\Woodlanders'
+$INSTALL_DIR = "$env:LOCALAPPDATA\Woodlanders\Launcher"
+$JRE_DIR = "$INSTALL_DIR\jre"
+$DESKTOP_SHORTCUT = "$env:USERPROFILE\Desktop\Woodlanders Launcher.lnk"
+$START_MENU_DIR = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Woodlanders"
 $JRE_DOWNLOAD_URL = "https://download.bell-sw.com/java/21.0.5+11/bellsoft-jdk21.0.5+11-windows-amd64-full.zip"
 
 function Write-Status { param([string]$Message); if (-not $Silent) { Write-Host $Message -ForegroundColor Cyan } }
@@ -113,10 +107,9 @@ function Download-JRE {
     $jreZip = "$env:TEMP\woodlanders-jre.zip"
     try {
         Write-Status "Downloading JDK (this may take a few minutes)..."
-        Write-Host "Download URL: $JRE_DOWNLOAD_URL" -ForegroundColor Gray
-        $ProgressPreference = 'Continue'
-        Invoke-WebRequest -Uri $JRE_DOWNLOAD_URL -OutFile $jreZip -UseBasicParsing
         $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $JRE_DOWNLOAD_URL -OutFile $jreZip -UseBasicParsing
+        $ProgressPreference = 'Continue'
         Write-Status "Extracting JDK..."
         $tempExtract = "$env:TEMP\woodlanders-jre-extract"
         if (Test-Path $tempExtract) { Remove-Item $tempExtract -Recurse -Force }
@@ -145,16 +138,18 @@ function Download-JRE {
 function Install-Application {
     Write-Status "Installing $APP_NAME..."
     New-Item -ItemType Directory -Force -Path $INSTALL_DIR | Out-Null
-    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { Get-Location | Select-Object -ExpandProperty Path }
+    $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
     if (Test-Path "$scriptDir\woodlanders-launcher.jar") {
         Copy-Item "$scriptDir\woodlanders-launcher.jar" -Destination $INSTALL_DIR -Force
         Write-Success "Application files copied"
     } else {
-        Write-ErrorMsg "Application JAR not found at $scriptDir\woodlanders-launcher.jar"
+        Write-ErrorMsg "Application JAR not found"
         return $false
     }
-    if (Test-Path "$scriptDir\launcher-icon.png") {
-        Copy-Item "$scriptDir\launcher-icon.png" -Destination $INSTALL_DIR -Force
+    if (Test-Path "$scriptDir\launcher.ico") {
+        Copy-Item "$scriptDir\launcher.ico" -Destination $INSTALL_DIR -Force
+    } elseif (Test-Path "$scriptDir\launcher.png") {
+        Copy-Item "$scriptDir\launcher.png" -Destination $INSTALL_DIR -Force
     }
     return $true
 }
@@ -166,29 +161,23 @@ function New-LauncherScript {
 }
 
 function New-Shortcuts {
-    if (-not $DESKTOP_SHORTCUT -or -not $START_MENU_DIR -or -not $INSTALL_DIR) {
-        Write-ErrorMsg "Shortcut paths not initialized correctly. Desktop='$DESKTOP_SHORTCUT' StartMenu='$START_MENU_DIR' InstallDir='$INSTALL_DIR'"
-        return
-    }
     $WshShell = New-Object -ComObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut($DESKTOP_SHORTCUT)
     $Shortcut.TargetPath = "$INSTALL_DIR\launcher.bat"
     $Shortcut.WorkingDirectory = $INSTALL_DIR
     $Shortcut.Description = "Woodlanders Game Launcher"
-    if (Test-Path "$INSTALL_DIR\launcher-icon.png") {
-        $Shortcut.IconLocation = "$INSTALL_DIR\launcher-icon.png"
+    if (Test-Path "$INSTALL_DIR\launcher.ico") {
+        $Shortcut.IconLocation = "$INSTALL_DIR\launcher.ico"
     }
     $Shortcut.Save()
     Write-Success "Desktop shortcut created"
-    if (-not (Test-Path $START_MENU_DIR)) {
-        New-Item -ItemType Directory -Force -Path $START_MENU_DIR | Out-Null
-    }
+    New-Item -ItemType Directory -Force -Path $START_MENU_DIR | Out-Null
     $StartMenuShortcut = $WshShell.CreateShortcut("$START_MENU_DIR\Woodlanders Launcher.lnk")
     $StartMenuShortcut.TargetPath = "$INSTALL_DIR\launcher.bat"
     $StartMenuShortcut.WorkingDirectory = $INSTALL_DIR
     $StartMenuShortcut.Description = "Woodlanders Game Launcher"
-    if (Test-Path "$INSTALL_DIR\launcher-icon.png") {
-        $StartMenuShortcut.IconLocation = "$INSTALL_DIR\launcher-icon.png"
+    if (Test-Path "$INSTALL_DIR\launcher.ico") {
+        $StartMenuShortcut.IconLocation = "$INSTALL_DIR\launcher.ico"
     }
     $StartMenuShortcut.Save()
     Write-Success "Start Menu shortcut created"
@@ -212,7 +201,10 @@ try {
     Write-Host "Installed to: $INSTALL_DIR"
     Write-Host ""
     if (-not $Silent) {
-        Start-Process -FilePath "$INSTALL_DIR\launcher.bat"
+        $launch = Read-Host "Launch now? (Y/n)"
+        if ($launch -ne 'n' -and $launch -ne 'N') {
+            Start-Process -FilePath "$INSTALL_DIR\launcher.bat"
+        }
     }
 } catch {
     Write-Host ""
@@ -220,12 +212,6 @@ try {
     if (-not $Silent) { Read-Host "Press Enter to exit" }
     exit 1
 }
-
-# # Always pause at the end so user can see the output
-# if (-not $Silent) {
-#     Write-Host ""
-#     Read-Host "Press Enter to close this window"
-# }
 '@
     
     $part1 | Out-File -FilePath $installerScriptPath -Encoding UTF8
@@ -282,14 +268,17 @@ if (-not (Get-Module -ListAvailable -Name ps2exe)) {
 
 Import-Module ps2exe
 
+Write-Host "  Converting to EXE..." -ForegroundColor Gray
 $ps2exeParams = @{
     inputFile = "installer-staging\install.ps1"
     outputFile = "build\distributions\woodlanders-setup-launcher.exe"
     title = "Woodlanders Launcher Installer"
     description = "Woodlanders Game Launcher Installer"
-    company = "Wagemaker UK"
+    company = "Ricardo Wagemaker"
+    product = "Woodlanders Launcher"
+    copyright = "Copyright (c) 2025 Ricardo Wagemaker"
     version = "1.0.0.0"
-    requireAdmin = $false
+    requireAdmin = $true
     noConsole = $false
 }
 
@@ -299,12 +288,34 @@ $ps2exeParams = @{
 Invoke-ps2exe @ps2exeParams
 
 if (Test-Path build\distributions\woodlanders-setup-launcher.exe) {
-    Write-Host "EXE created successfully" -ForegroundColor Green
+    Write-Host "Installer EXE created successfully" -ForegroundColor Green
 } else {
-    Write-Host "Failed to create EXE" -ForegroundColor Red
+    Write-Host "Failed to create installer EXE" -ForegroundColor Red
     exit 1
 }
-Write-Host ""
+
+Write-Host "  Converting uninstaller to EXE..." -ForegroundColor Gray
+$uninstallParams = @{
+    inputFile = "windows\uninstall.ps1"
+    outputFile = "build\distributions\woodlanders-uninstall.exe"
+    title = "Woodlanders Launcher Uninstaller"
+    description = "Uninstall Woodlanders Game Launcher"
+    company = "Ricardo Wagemaker"
+    product = "Woodlanders Launcher"
+    copyright = "Copyright (c) 2025 Ricardo Wagemaker"
+    version = "1.0.0.0"
+    requireAdmin = $true
+    noConsole = $false
+}
+Invoke-ps2exe @uninstallParams
+
+if (Test-Path build\distributions\woodlanders-uninstall.exe) {
+    Write-Host "Uninstaller EXE created successfully" -ForegroundColor Green
+} else {
+    Write-Host "Failed to create uninstaller EXE" -ForegroundColor Red
+}
+
+Write-Host "" 
 
 # Step 7: Create distribution package
 Write-Host "[7/7] Creating distribution package..." -ForegroundColor Yellow
@@ -312,15 +323,19 @@ Write-Host "[7/7] Creating distribution package..." -ForegroundColor Yellow
 # Copy all necessary files to distributions folder
 Copy-Item installer-staging\woodlanders-launcher.jar -Destination build\distributions\ -Force
 Copy-Item installer-staging\launcher.ico -Destination build\distributions\ -Force -ErrorAction SilentlyContinue
+Copy-Item installer-staging\launcher.png -Destination build\distributions\ -Force -ErrorAction SilentlyContinue
 Copy-Item installer-staging\install.ps1 -Destination build\distributions\ -Force
 Copy-Item installer-staging\README.txt -Destination build\distributions\ -Force
+Copy-Item windows\uninstall.ps1 -Destination build\distributions\ -Force
 
 # Create ZIP with all installer files
 $zipFiles = @(
     "build\distributions\woodlanders-setup-launcher.exe",
+    "build\distributions\woodlanders-uninstall.exe",
     "build\distributions\woodlanders-launcher.jar",
     "build\distributions\launcher.ico",
     "build\distributions\install.ps1",
+    "build\distributions\uninstall.ps1",
     "build\distributions\README.txt"
 )
 $zipFiles = $zipFiles | Where-Object { Test-Path $_ }
@@ -344,9 +359,12 @@ Write-Host ""
 
 Write-Host "ZIP Contents:" -ForegroundColor Cyan
 Write-Host "  - woodlanders-setup-launcher.exe (installer)" -ForegroundColor Gray
+Write-Host "  - woodlanders-uninstall.exe (uninstaller)" -ForegroundColor Gray
+Write-Host "  - uninstall.ps1 (uninstall script)" -ForegroundColor Gray
 Write-Host "  - woodlanders-launcher.jar (application)" -ForegroundColor Gray
 Write-Host "  - launcher.ico (icon)" -ForegroundColor Gray
-Write-Host "  - install.ps1 (PowerShell alternative)" -ForegroundColor Gray
+Write-Host "  - install.ps1 (PowerShell script)" -ForegroundColor Gray
+
 Write-Host "  - README.txt (instructions)" -ForegroundColor Gray
 Write-Host ""
 
@@ -355,20 +373,5 @@ Write-Host "  1. Extract the ZIP file" -ForegroundColor White
 Write-Host "  2. Run woodlanders-setup-launcher.exe from the extracted folder" -ForegroundColor White
 Write-Host ""
 
-$test = Read-Host "Would you like to extract and test the installer now? (Y/n)"
-if ($test -ne 'n' -and $test -ne 'N') {
-    Write-Host ""
-    Write-Host "Extracting ZIP..." -ForegroundColor Cyan
-    $testDir = "build\distributions\test-installer"
-    if (Test-Path $testDir) { Remove-Item $testDir -Recurse -Force }
-    
-    # Try Expand-Archive first, fallback to .NET if module not available
-    try {
-        Expand-Archive -Path build\distributions\woodlanders-launcher-installer.zip -DestinationPath $testDir -ErrorAction Stop
-    } catch {
-        Add-Type -AssemblyName System.IO.Compression.FileSystem
-        [System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD\build\distributions\woodlanders-launcher-installer.zip", "$PWD\$testDir")
-    }
-    Write-Host "Launching installer..." -ForegroundColor Cyan
-    Start-Process -FilePath "$testDir\woodlanders-setup-launcher.exe" -WorkingDirectory $testDir -Wait
-}
+Write-Host "Build complete! Run the installer from:" -ForegroundColor Cyan
+Write-Host "  build\distributions\woodlanders-setup-launcher.exe" -ForegroundColor White

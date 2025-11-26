@@ -1,5 +1,5 @@
-# Woodlanders Launcher - Windows Installer with JRE Auto-Download
-# Version: LOCAL-BUILD
+﻿# Woodlanders Launcher - Windows Installer with JRE Auto-Download
+# Version: ${VERSION}
 
 param(
     [switch]$Silent = $false
@@ -9,8 +9,8 @@ $ErrorActionPreference = "Stop"
 
 # Configuration
 $APP_NAME = "Woodlanders Launcher"
-# Runtime version injected by workflow (replaces LOCAL-BUILD)
-$APP_VERSION = "LOCAL-BUILD"
+# Runtime version injected by workflow (replaces ${VERSION})
+$APP_VERSION = "${VERSION}"
 $JRE_VERSION = "21"
 $INSTALL_DIR = "$env:LOCALAPPDATA\Woodlanders\Launcher"
 $JRE_DIR = "$INSTALL_DIR\jre"
@@ -286,4 +286,3 @@ try {
     }
     exit 1
 }
-
