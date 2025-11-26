@@ -104,15 +104,36 @@ If you explore, plant, test, nudge the edges, and tell us what you felt—you he
 
 [![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/woodlanders-launcher)
 
-### Windows (Recommended)
+### Windows
 
-1. **Download** the latest installer ZIP from Releases:
-  - https://github.com/gcclinux/woodlanders-launcher/releases/latest
-2. **Extract** the ZIP
-3. **Install** by either:
-  - Double‑clicking `woodlanders-setup-launcher.exe` (recommended), or
-  - Right‑click `install.ps1` → Run with PowerShell
-4. **Launch** from the desktop shortcut or Start Menu
+1. **Download** the latest launcher from [Releases](https://github.com/gcclinux/woodlanders-launcher/releases/latest)
+2. **Extract** the ZIP file
+3. **Run** `woodlanders-setup-launcher.exe` or right-click `install.ps1` → Run with PowerShell
+4. **Launch** from desktop shortcut or Start Menu
+
+The installer automatically downloads Java if needed.
+
+### Ubuntu / Debian (Snap)
+
+```bash
+sudo snap install woodlanders-launcher
+```
+
+Available in the [Snap Store](https://snapcraft.io/woodlanders-launcher).
+
+### Linux (Flatpak)
+
+1. **Download** the latest Flatpak from [Releases](https://github.com/gcclinux/woodlanders-launcher/releases/latest)
+2. **Install**:
+   ```bash
+   flatpak install --user woodlanders-launcher.flatpak
+   ```
+3. **Run**:
+   ```bash
+   flatpak run io.github.gcclinux.woodlanders.launcher
+   ```
+
+No additional Java installation required — JRE is bundled!
 
 ### Windows Uninstall
 
@@ -134,20 +155,6 @@ The installer will automatically download Java if you don't have it installed.
 1. **Download**: Manual ZIP from the latest release
 2. **Require**: Java 21+ from [adoptium.net](https://adoptium.net/)
 3. **Extract** and double-click `launcher.bat`
-
-### Linux (Snap — Easiest)
-
-```bash
-# Install the snap package
-sudo snap install --dangerous woodlanders-launcher_0.1.0_amd64.snap
-
-# Grant necessary permissions
-sudo snap connect woodlanders-launcher:home
-sudo snap connect woodlanders-launcher:network
-
-# Launch
-snap run woodlanders-launcher
-```
 
 ### Linux (TAR.GZ — Manual)
 
