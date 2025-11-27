@@ -43,8 +43,8 @@ import java.util.concurrent.ThreadFactory;
  */
 public class LauncherApplication extends Application {
     private static final Logger LOG = LoggerFactory.getLogger(LauncherApplication.class);
-    private static final String USER_AGENT = "woodlanders-launcher/0.1.0 (+https://gcclinux.github.io/Woodlanders/)";
-    private static final URI PROJECT_URL = URI.create("https://gcclinux.github.io/Woodlanders/");
+    private static final String USER_AGENT = "woodlanders-launcher/0.1.0 (+https://gcclinux.github.io/woodlanders/)";
+    private static final URI PROJECT_URL = URI.create("https://gcclinux.github.io/woodlanders/");
     private static final Path JAVAFX_CACHE_DIR = determineJavaFxCacheDir();
 
     static {
