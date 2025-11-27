@@ -3,12 +3,14 @@
 
 [versions]
 junit-jupiter = "5.12.1"
+jqwik = "1.9.1"
 jackson = "2.17.1"
 javafx = "21.0.4"
 slf4j = "2.0.16"
 
 [libraries]
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
 jackson-core = { module = "com.fasterxml.jackson.core:jackson-core", version.ref = "jackson" }
 jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
 jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }

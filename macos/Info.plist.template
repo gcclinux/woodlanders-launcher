@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Application Identity -->
+    <key>CFBundleName</key>
+    <string>Woodlanders Launcher</string>
+    
+    <key>CFBundleDisplayName</key>
+    <string>Woodlanders Launcher</string>
+    
+    <key>CFBundleIdentifier</key>
+    <string>{{BUNDLE_IDENTIFIER}}</string>
+    
+    <key>CFBundleVersion</key>
+    <string>{{VERSION}}</string>
+    
+    <key>CFBundleShortVersionString</key>
+    <string>{{VERSION}}</string>
+    
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    
+    <key>CFBundleSignature</key>
+    <string>WDLN</string>
+    
+    <!-- Executable and Icon -->
+    <key>CFBundleExecutable</key>
+    <string>WoodlandersLauncher</string>
+    
+    <key>CFBundleIconFile</key>
+    <string>woodlanders-launcher.icns</string>
+    
+    <!-- System Requirements -->
+    <key>LSMinimumSystemVersion</key>
+    <string>11.0</string>
+    
+    <!-- Display Settings -->
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    
+    <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    
+    <!-- Network Access Permissions -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <false/>
+        <key>NSExceptionDomains</key>
+        <dict>
+            <key>github.com</key>
+            <dict>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <false/>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSExceptionRequiresForwardSecrecy</key>
+                <true/>
+            </dict>
+            <key>githubusercontent.com</key>
+            <dict>
+                <key>NSExceptionAllowsInsecureHTTPLoads</key>
+                <false/>
+                <key>NSIncludesSubdomains</key>
+                <true/>
+                <key>NSExceptionRequiresForwardSecrecy</key>
+                <true/>
+            </dict>
+        </dict>
+    </dict>
+    
+    <!-- File Access Permissions -->
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Woodlanders Launcher needs access to store game files and configuration.</string>
+    
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Woodlanders Launcher downloads game updates from GitHub.</string>
+    
+    <!-- Application Category -->
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.games</string>
+    
+    <!-- Additional Metadata -->
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2024 Woodlanders Community</string>
+    
+    <!-- Java Application Settings -->
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    
+    <key>NSMainNibFile</key>
+    <string></string>
+</dict>
+</plist>

@@ -1,0 +1,33 @@
+#!/bin/bash
+
+# Woodlanders Launcher - macOS Native Launcher Script
+# This script bootstraps the Java application with the bundled JRE and JavaFX
+
+# Get the directory containing this script (Contents/MacOS/)
+DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Set JAVA_HOME to the bundled JRE
+JAVA_HOME="$DIR/Resources/app/jre"
+
+# Set JavaFX path to the bundled JavaFX libraries (separate from JRE lib to avoid conflicts)
+JAVAFX_PATH="$DIR/Resources/app/javafx"
+
+# Set JavaFX cache directory to macOS standard location
+CACHE_DIR="$HOME/Library/Caches/woodlanders-javafx"
+
+# Export JAVA_HOME for any child processes
+export JAVA_HOME
+
+# Create cache directory if it doesn't exist
+mkdir -p "$CACHE_DIR"
+
+# Build classpath with all JARs in lib directory
+CLASSPATH="$DIR/Resources/app/lib/*"
+
+# Execute the launcher with proper JavaFX configuration
+exec "$JAVA_HOME/bin/java" \
+  --module-path "$JAVAFX_PATH" \
+  --add-modules javafx.controls \
+  -Djavafx.cachedir="$CACHE_DIR" \
+  -cp "$CLASSPATH" \
+  com.woodlanders.launcher.ui.LauncherApplication

@@ -38,10 +38,10 @@ locally, and launches the game with a single click.
 ## Features
 
 - ✅ **Automatic Updates** — checks GitHub for the latest game version
-- ✅ **Smart Caching** — downloads and caches game files to `${HOME}/.config/woodlanders/`
+- ✅ **Smart Caching** — downloads and caches game files locally
 - ✅ **Version Detection** — compares local and remote versions with SHA-256
 - ✅ **One-Click Launch** — simple, intuitive interface to play
-- ✅ **Cross-Platform** — Windows and Linux (Snap/TAR.GZ)
+- ✅ **Cross-Platform** — Windows, macOS (Apple Silicon), and Linux (Snap/Flatpak/TAR.GZ)
 
 See [`docs/QUICK_START.md`](docs/QUICK_START.md) for more.
 
@@ -113,6 +113,18 @@ If you explore, plant, test, nudge the edges, and tell us what you felt—you he
 
 The installer automatically downloads Java if needed.
 
+### macOS (Apple Silicon)
+
+1. **Download** the latest DMG from [Releases](https://github.com/gcclinux/woodlanders-launcher/releases/latest)
+2. **Open** the DMG file
+3. **Drag** Woodlanders Launcher to your Applications folder
+4. **First Launch**: Control+click (or right-click) the app → **Open** to bypass Gatekeeper
+5. **Subsequent Launches**: Double-click normally
+
+**System Requirements**: macOS 11 (Big Sur) or later, Apple Silicon (M1/M2/M3/M4)
+
+No additional Java installation required — JRE is bundled!
+
 ### Ubuntu / Debian (Snap)
 
 ```bash
@@ -180,6 +192,12 @@ chmod +x launcher.sh
 - Java: Not required (installer auto-downloads Java 21)
 - Disk Space: ~200 MB (including Java runtime)
 
+### macOS
+- OS: macOS 11 (Big Sur) or later
+- Architecture: Apple Silicon (M1, M2, M3, M4)
+- Java: Not required (bundled in app)
+- Disk Space: ~250 MB (including Java runtime)
+
 ### Linux
 - OS: Any modern Linux distribution
 - Java: JRE 21+ (not needed for Snap package)
@@ -215,8 +233,10 @@ gradle run
 
 Game files and cache are stored in:
 - **Windows**: `%USERPROFILE%\.config\woodlanders\`
+- **macOS**: `~/Library/Application Support/Woodlanders/`
 - **Linux**: `~/.config/woodlanders/`
-- **JavaFX Cache**: `~/.cache/woodlanders-javafx/`
+- **JavaFX Cache** (Windows/Linux): `~/.cache/woodlanders-javafx/`
+- **JavaFX Cache** (macOS): `~/Library/Caches/woodlanders-javafx/`
 
 ---
 
@@ -225,6 +245,17 @@ Game files and cache are stored in:
 ### Windows: "Java is not recognized"
 - The installer package automatically handles Java installation
 - For manual installation, download Java from [adoptium.net](https://adoptium.net/)
+
+### macOS: "App can't be opened because it is from an unidentified developer"
+- Control+click (or right-click) the app and select **Open**
+- Click **Open** in the security dialog
+- This only needs to be done once on first launch
+
+### macOS: App won't start
+- Verify you're running macOS 11 (Big Sur) or later
+- Ensure you have an Apple Silicon Mac (M1/M2/M3/M4)
+- Check Activity Monitor to see if the process is running
+- Try removing the app and reinstalling from the DMG
 
 ### Linux: Application won't start
 - Ensure Java 21+ is installed: `java -version`

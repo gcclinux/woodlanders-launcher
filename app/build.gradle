@@ -25,6 +25,7 @@ repositories {
 dependencies {
     // Use JUnit Jupiter for testing.
     testImplementation libs.junit.jupiter
+    testImplementation libs.jqwik
 
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
@@ -99,7 +100,7 @@ jar {
 tasks.register('windowsPackage', Zip) {
     dependsOn jar
     archiveBaseName = 'woodlanders-launcher-windows'
-    archiveVersion = '0.1.0'
+    archiveVersion = '0.1.1'
     destinationDirectory = file("$buildDir/distributions")
     
     from(jar.archiveFile) {
@@ -109,7 +110,7 @@ tasks.register('windowsPackage', Zip) {
     from('src/main/scripts') {
         include '*.bat', '*.ps1'
         filter { line ->
-            line.replace('${VERSION}', '0.1.0')
+            line.replace('${VERSION}', '0.1.1')
         }
     }
     
@@ -126,7 +127,7 @@ tasks.register('windowsPackage', Zip) {
 tasks.register('windowsInstallerPackage', Zip) {
     dependsOn jar
     archiveBaseName = 'woodlanders-launcher-windows-installer'
-    archiveVersion = '0.1.0'
+    archiveVersion = '0.1.1'
     destinationDirectory = file("$buildDir/distributions")
     
     from(jar.archiveFile) {
@@ -136,7 +137,7 @@ tasks.register('windowsInstallerPackage', Zip) {
     from('src/main/scripts') {
         include 'INSTALL.bat', 'windows-installer.ps1'
         filter { line ->
-            line.replace('${VERSION}', '0.1.0')
+            line.replace('${VERSION}', '0.1.1')
         }
     }
     
@@ -152,7 +153,7 @@ tasks.register('windowsInstallerPackage', Zip) {
     from(file('src/main/scripts')) {
         include 'INSTALLER_README.txt'
         filter { line ->
-            line.replace('${VERSION}', '0.1.0')
+            line.replace('${VERSION}', '0.1.1')
         }
     }
 }
@@ -161,7 +162,7 @@ tasks.register('windowsInstallerPackage', Zip) {
 tasks.register('linuxPackage', Tar) {
     dependsOn jar
     archiveBaseName = 'woodlanders-launcher-linux'
-    archiveVersion = '0.1.0'
+    archiveVersion = '0.1.1'
     archiveExtension = 'tar.gz'
     compression = Compression.GZIP
     destinationDirectory = file("$buildDir/distributions")
@@ -194,7 +195,7 @@ tasks.register('snapPackage', Exec) {
         ?.split(':')[1]
         ?.trim()
         ?.replaceAll("'", "")
-        ?: '0.1.0'
+        ?: '0.1.1'
     
     def outputPath = "app/build/distributions/woodlanders-launcher_${snapVersion}_amd64.snap"
     
@@ -299,17 +300,17 @@ tasks.register('flatpakPackage', Exec) {
 
 // Task to build all distribution packages
 tasks.register('buildAllPackages') {
-    dependsOn windowsPackage, windowsInstallerPackage, linuxPackage, snapPackage, flatpakPackage
+    dependsOn windowsPackage, windowsInstallerPackage, linuxPackage, snapPackage, flatpakPackage, macosPackage
     group = 'distribution'
-    description = 'Builds all distribution packages including Windows installer and snap'
+    description = 'Builds all distribution packages including Windows installer, snap, flatpak, and macOS'
     
     doLast {
         println "\n========================================="
         println "Distribution packages created successfully!"
         println "========================================="
-        println "Windows (Manual):     app/build/distributions/woodlanders-launcher-windows-0.1.0.zip"
-        println "Windows (Installer):  app/build/distributions/woodlanders-launcher-windows-installer-0.1.0.zip"
-        println "Linux (TAR.GZ):       app/build/distributions/woodlanders-launcher-linux-0.1.0.tar.gz"
+        println "Windows (Manual):     app/build/distributions/woodlanders-launcher-windows-0.1.1.zip"
+        println "Windows (Installer):  app/build/distributions/woodlanders-launcher-windows-installer-0.1.1.zip"
+        println "Linux (TAR.GZ):       app/build/distributions/woodlanders-launcher-linux-0.1.1.tar.gz"
         
         // Find snap file if it exists
         def distDir = new File(project.projectDir, "build/distributions")
@@ -329,6 +330,14 @@ tasks.register('buildAllPackages') {
             println "Linux (Flatpak):      (skipped - flatpak-builder not available)"
         }
         
+        // Check for macOS DMG
+        def macosDmg = new File(project.projectDir, "build/distributions/woodlanders-launcher-macos-0.1.1.dmg")
+        if (macosDmg.exists()) {
+            println "macOS (DMG):          app/build/distributions/woodlanders-launcher-macos-0.1.1.dmg"
+        } else {
+            println "macOS (DMG):          (skipped - not on macOS or missing tools)"
+        }
+        
         println "=========================================\n"
     }
 }
@@ -344,7 +353,7 @@ jlink {
     jpackage {
         imageName = 'WoodlandersLauncher'
         installerName = 'WoodlandersLauncher'
-        appVersion = '0.1.0'
+        appVersion = '0.1.1'
         vendor = 'Woodlanders'
         
         if (file('../icon/launcher.ico').exists()) {
@@ -404,4 +413,1151 @@ tasks.register('windowsInstaller') {
         println "For now, use the ZIP package or build on Windows."
         println "=========================================\n"
     }
+}
+
+// ========================================
+// macOS Package Build Tasks
+// ========================================
+
+// Task to download and cache JDK for macOS Apple Silicon
+tasks.register('downloadMacOSJDK') {
+    group = 'macOS'
+    description = 'Downloads and caches JDK 21 for macOS arm64'
+    
+    def jdkVersion = '21.0.5+11'
+    def jdkDownloadUrl = 'https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jdk_aarch64_mac_hotspot_21.0.5_11.tar.gz'
+    def jdkSha256 = 'dc6db7347907d23743d13af935d3c10e8b3490acdf542115f578838227da0dab'
+    def cacheDir = new File(System.getProperty('user.home'), '.gradle/caches/woodlanders-macos')
+    def jdkArchive = new File(cacheDir, "openjdk-21.0.5-11-macos-aarch64.tar.gz")
+    
+    outputs.file(jdkArchive)
+    outputs.upToDateWhen {
+        if (!jdkArchive.exists()) {
+            return false
+        }
+        // Verify checksum
+        def actualChecksum = calculateSha256(jdkArchive)
+        return actualChecksum == jdkSha256
+    }
+    
+    doLast {
+        cacheDir.mkdirs()
+        
+        // Check if already cached with correct checksum
+        if (jdkArchive.exists()) {
+            def actualChecksum = calculateSha256(jdkArchive)
+            if (actualChecksum == jdkSha256) {
+                println "✓ JDK already cached with correct checksum: ${jdkArchive}"
+                return
+            } else {
+                println "⚠ Cached JDK checksum mismatch. Re-downloading..."
+                jdkArchive.delete()
+            }
+        }
+        
+        println "Downloading JDK ${jdkVersion} for macOS arm64..."
+        println "URL: ${jdkDownloadUrl}"
+        println "Destination: ${jdkArchive}"
+        
+        // Download with retry
+        def maxRetries = 2
+        def success = false
+        
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                def url = new URL(jdkDownloadUrl)
+                def connection = url.openConnection()
+                connection.setRequestProperty('User-Agent', 'Woodlanders-Launcher-Build')
+                connection.connect()
+                
+                def contentLength = connection.getContentLengthLong()
+                println "Download size: ${contentLength / 1024 / 1024} MB"
+                
+                jdkArchive.withOutputStream { out ->
+                    def input = connection.getInputStream()
+                    def buffer = new byte[8192]
+                    def bytesRead
+                    def totalRead = 0L
+                    def lastPercent = -1
+                    
+                    while ((bytesRead = input.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead)
+                        totalRead += bytesRead
+                        
+                        if (contentLength > 0) {
+                            def percent = (int)((totalRead * 100) / contentLength)
+                            if (percent != lastPercent && percent % 10 == 0) {
+                                println "  ${percent}% complete..."
+                                lastPercent = percent
+                            }
+                        }
+                    }
+                    input.close()
+                }
+                
+                println "✓ Download complete"
+                
+                // Verify checksum
+                def actualChecksum = calculateSha256(jdkArchive)
+                if (actualChecksum != jdkSha256) {
+                    jdkArchive.delete()
+                    throw new GradleException("Checksum mismatch!\nExpected: ${jdkSha256}\nActual:   ${actualChecksum}")
+                }
+                
+                println "✓ Checksum verified"
+                success = true
+                break
+                
+            } catch (Exception e) {
+                println "✗ Download attempt ${attempt} failed: ${e.message}"
+                if (attempt < maxRetries) {
+                    println "  Retrying..."
+                    Thread.sleep(2000)
+                } else {
+                    jdkArchive.delete()
+                    throw new GradleException("Failed to download JDK after ${maxRetries} attempts: ${e.message}")
+                }
+            }
+        }
+        
+        if (success) {
+            println "✓ JDK cached successfully: ${jdkArchive}"
+        }
+    }
+}
+
+// Task to download and cache JavaFX for macOS Apple Silicon
+tasks.register('downloadMacOSJavaFX') {
+    group = 'macOS'
+    description = 'Downloads and caches JavaFX 21 SDK for macOS arm64'
+    
+    def javafxVersion = '21.0.4'
+    def javafxDownloadUrl = 'https://download2.gluonhq.com/openjfx/21.0.4/openjfx-21.0.4_osx-aarch64_bin-sdk.zip'
+    def javafxSha256 = 'be4cf94d44ce268f6f485064f19a670176051ed1421147916975b4cd3abedbcb'
+    def cacheDir = new File(System.getProperty('user.home'), '.gradle/caches/woodlanders-macos')
+    def javafxArchive = new File(cacheDir, "openjfx-21.0.4-macos-aarch64.zip")
+    
+    outputs.file(javafxArchive)
+    outputs.upToDateWhen {
+        if (!javafxArchive.exists()) {
+            return false
+        }
+        // Verify checksum
+        def actualChecksum = calculateSha256(javafxArchive)
+        return actualChecksum == javafxSha256
+    }
+    
+    doLast {
+        cacheDir.mkdirs()
+        
+        // Check if already cached with correct checksum
+        if (javafxArchive.exists()) {
+            def actualChecksum = calculateSha256(javafxArchive)
+            if (actualChecksum == javafxSha256) {
+                println "✓ JavaFX already cached with correct checksum: ${javafxArchive}"
+                return
+            } else {
+                println "⚠ Cached JavaFX checksum mismatch. Re-downloading..."
+                javafxArchive.delete()
+            }
+        }
+        
+        println "Downloading JavaFX ${javafxVersion} SDK for macOS arm64..."
+        println "URL: ${javafxDownloadUrl}"
+        println "Destination: ${javafxArchive}"
+        
+        // Download with retry
+        def maxRetries = 2
+        def success = false
+        
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                def url = new URL(javafxDownloadUrl)
+                def connection = url.openConnection()
+                connection.setRequestProperty('User-Agent', 'Woodlanders-Launcher-Build')
+                connection.connect()
+                
+                def contentLength = connection.getContentLengthLong()
+                println "Download size: ${contentLength / 1024 / 1024} MB"
+                
+                javafxArchive.withOutputStream { out ->
+                    def input = connection.getInputStream()
+                    def buffer = new byte[8192]
+                    def bytesRead
+                    def totalRead = 0L
+                    def lastPercent = -1
+                    
+                    while ((bytesRead = input.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead)
+                        totalRead += bytesRead
+                        
+                        if (contentLength > 0) {
+                            def percent = (int)((totalRead * 100) / contentLength)
+                            if (percent != lastPercent && percent % 10 == 0) {
+                                println "  ${percent}% complete..."
+                                lastPercent = percent
+                            }
+                        }
+                    }
+                    input.close()
+                }
+                
+                println "✓ Download complete"
+                
+                // Verify checksum
+                def actualChecksum = calculateSha256(javafxArchive)
+                if (actualChecksum != javafxSha256) {
+                    javafxArchive.delete()
+                    throw new GradleException("Checksum mismatch!\nExpected: ${javafxSha256}\nActual:   ${actualChecksum}")
+                }
+                
+                println "✓ Checksum verified"
+                success = true
+                break
+                
+            } catch (Exception e) {
+                println "✗ Download attempt ${attempt} failed: ${e.message}"
+                if (attempt < maxRetries) {
+                    println "  Retrying..."
+                    Thread.sleep(2000)
+                } else {
+                    javafxArchive.delete()
+                    throw new GradleException("Failed to download JavaFX after ${maxRetries} attempts: ${e.message}")
+                }
+            }
+        }
+        
+        if (success) {
+            println "✓ JavaFX cached successfully: ${javafxArchive}"
+        }
+    }
+}
+
+// Task to create .app bundle directory structure
+tasks.register('createMacOSAppBundle') {
+    group = 'macOS'
+    description = 'Creates the macOS .app bundle directory structure'
+    
+    def appBundleDir = new File(buildDir, 'macos/WoodlandersLauncher.app')
+    def contentsDir = new File(appBundleDir, 'Contents')
+    def macosDir = new File(contentsDir, 'MacOS')
+    def resourcesDir = new File(contentsDir, 'Resources')
+    def appDir = new File(resourcesDir, 'app')
+    def libDir = new File(appDir, 'lib')
+    
+    outputs.dir(appBundleDir)
+    
+    doLast {
+        println "Creating macOS .app bundle structure..."
+        
+        // Create all required directories
+        [contentsDir, macosDir, resourcesDir, appDir, libDir].each { dir ->
+            if (!dir.exists()) {
+                dir.mkdirs()
+                println "  Created: ${dir.path.replace(buildDir.path, 'build')}"
+            }
+        }
+        
+        // Set proper directory permissions (755 for directories)
+        [appBundleDir, contentsDir, macosDir, resourcesDir, appDir, libDir].each { dir ->
+            if (System.getProperty('os.name').toLowerCase().contains('mac') || 
+                System.getProperty('os.name').toLowerCase().contains('nix') || 
+                System.getProperty('os.name').toLowerCase().contains('nux')) {
+                def process = ['chmod', '755', dir.absolutePath].execute()
+                process.waitFor()
+                if (process.exitValue() != 0) {
+                    logger.warn("Failed to set permissions on ${dir.path}")
+                }
+            }
+        }
+        
+        println "✓ App bundle structure created: ${appBundleDir.path.replace(buildDir.path, 'build')}"
+    }
+}
+
+// Task to extract JDK into .app bundle
+tasks.register('extractMacOSJDK') {
+    group = 'macOS'
+    description = 'Extracts the downloaded JDK tarball into the .app bundle'
+    
+    dependsOn downloadMacOSJDK, createMacOSAppBundle
+    
+    def cacheDir = new File(System.getProperty('user.home'), '.gradle/caches/woodlanders-macos')
+    def jdkArchive = new File(cacheDir, "openjdk-21.0.5-11-macos-aarch64.tar.gz")
+    def appBundleDir = new File(buildDir, 'macos/WoodlandersLauncher.app')
+    def jreDir = new File(appBundleDir, 'Contents/Resources/app/jre')
+    def javaExecutable = new File(jreDir, 'bin/java')
+    
+    inputs.file(jdkArchive)
+    outputs.dir(jreDir)
+    outputs.file(javaExecutable)
+    
+    doLast {
+        println "Extracting JDK to .app bundle..."
+        
+        // Clean existing JRE directory if it exists
+        if (jreDir.exists()) {
+            println "  Cleaning existing JRE directory..."
+            jreDir.deleteDir()
+        }
+        jreDir.mkdirs()
+        
+        // Extract the tarball
+        // macOS JDK comes in .jdk bundle format: jdk-21.0.5+11.jdk/Contents/Home/...
+        // We need to strip 3 components to get to the actual JDK files
+        println "  Extracting ${jdkArchive.name}..."
+        def extractProcess = ['tar', '-xzf', jdkArchive.absolutePath, '-C', jreDir.absolutePath, '--strip-components=3'].execute()
+        extractProcess.waitForProcessOutput(System.out, System.err)
+        
+        if (extractProcess.exitValue() != 0) {
+            throw new GradleException("Failed to extract JDK tarball")
+        }
+        
+        println "  ✓ JDK extracted to: ${jreDir.path.replace(buildDir.path, 'build')}"
+        
+        // Verify Java executable exists
+        if (!javaExecutable.exists()) {
+            throw new GradleException("Java executable not found at expected location: ${javaExecutable.path}")
+        }
+        println "  ✓ Java executable verified: ${javaExecutable.path.replace(buildDir.path, 'build')}"
+        
+        // Set executable permissions on Java binaries
+        println "  Setting executable permissions on Java binaries..."
+        def binDir = new File(jreDir, 'bin')
+        if (binDir.exists() && binDir.isDirectory()) {
+            binDir.listFiles().each { file ->
+                if (file.isFile()) {
+                    def chmodProcess = ['chmod', '755', file.absolutePath].execute()
+                    chmodProcess.waitFor()
+                    if (chmodProcess.exitValue() != 0) {
+                        logger.warn("Failed to set permissions on ${file.name}")
+                    }
+                }
+            }
+            println "  ✓ Executable permissions set on binaries in bin/"
+        }
+        
+        // Set executable permissions on native libraries
+        def libDir = new File(jreDir, 'lib')
+        if (libDir.exists() && libDir.isDirectory()) {
+            // Find all .dylib files recursively
+            libDir.eachFileRecurse { file ->
+                if (file.name.endsWith('.dylib')) {
+                    def chmodProcess = ['chmod', '755', file.absolutePath].execute()
+                    chmodProcess.waitFor()
+                    if (chmodProcess.exitValue() != 0) {
+                        logger.warn("Failed to set permissions on ${file.name}")
+                    }
+                }
+            }
+            println "  ✓ Executable permissions set on native libraries"
+        }
+        
+        println "✓ JDK extraction complete"
+    }
+    
+    // Only run on macOS or Linux (not Windows)
+    onlyIf {
+        def os = System.getProperty('os.name').toLowerCase()
+        if (os.contains('windows')) {
+            logger.warn("extractMacOSJDK task requires Unix-like system (macOS or Linux)")
+            return false
+        }
+        return true
+    }
+}
+
+// Task to extract JavaFX into .app bundle
+tasks.register('extractMacOSJavaFX') {
+    group = 'macOS'
+    description = 'Extracts JavaFX SDK and copies libraries into the .app bundle'
+    
+    dependsOn downloadMacOSJavaFX, extractMacOSJDK
+    
+    def cacheDir = new File(System.getProperty('user.home'), '.gradle/caches/woodlanders-macos')
+    def javafxArchive = new File(cacheDir, "openjfx-21.0.4-macos-aarch64.zip")
+    def appBundleDir = new File(buildDir, 'macos/WoodlandersLauncher.app')
+    def javafxDir = new File(appBundleDir, 'Contents/Resources/app/javafx')
+    def jreLibDir = new File(appBundleDir, 'Contents/Resources/app/jre/lib')
+    def tempExtractDir = new File(buildDir, 'macos/javafx-temp')
+    
+    inputs.file(javafxArchive)
+    outputs.dir(javafxDir)
+    
+    doLast {
+        println "Extracting JavaFX SDK to .app bundle..."
+        
+        // Clean temp directory if it exists
+        if (tempExtractDir.exists()) {
+            println "  Cleaning temporary extraction directory..."
+            tempExtractDir.deleteDir()
+        }
+        tempExtractDir.mkdirs()
+        
+        // Extract JavaFX SDK zip to temporary location
+        println "  Extracting ${javafxArchive.name} to temporary location..."
+        def extractProcess = ['unzip', '-q', javafxArchive.absolutePath, '-d', tempExtractDir.absolutePath].execute()
+        extractProcess.waitForProcessOutput(System.out, System.err)
+        
+        if (extractProcess.exitValue() != 0) {
+            throw new GradleException("Failed to extract JavaFX SDK zip")
+        }
+        println "  ✓ JavaFX SDK extracted to temporary location"
+        
+        // Find the JavaFX SDK directory (should be javafx-sdk-21.0.4/)
+        def javafxSdkDir = tempExtractDir.listFiles().find { it.isDirectory() && it.name.startsWith('javafx-sdk') }
+        if (!javafxSdkDir) {
+            throw new GradleException("Could not find JavaFX SDK directory in extracted archive")
+        }
+        println "  Found JavaFX SDK directory: ${javafxSdkDir.name}"
+        
+        // Create JavaFX directory
+        if (!javafxDir.exists()) {
+            javafxDir.mkdirs()
+        }
+        
+        // Copy JavaFX JAR files to separate javafx directory (not jre/lib to avoid conflicts)
+        def javafxLibDir = new File(javafxSdkDir, 'lib')
+        if (!javafxLibDir.exists() || !javafxLibDir.isDirectory()) {
+            throw new GradleException("JavaFX lib directory not found: ${javafxLibDir.path}")
+        }
+        
+        println "  Copying JavaFX JAR files to javafx directory..."
+        def jarCount = 0
+        javafxLibDir.listFiles().each { file ->
+            if (file.name.endsWith('.jar')) {
+                def destFile = new File(javafxDir, file.name)
+                java.nio.file.Files.copy(
+                    file.toPath(), 
+                    destFile.toPath(), 
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                )
+                jarCount++
+                println "    Copied: ${file.name}"
+            }
+        }
+        println "  ✓ Copied ${jarCount} JavaFX JAR files"
+        
+        // Copy JavaFX native libraries (*.dylib) to jre/lib/ where they're expected
+        println "  Copying JavaFX native libraries to JRE lib directory..."
+        def dylibCount = 0
+        javafxLibDir.listFiles().each { file ->
+            if (file.name.endsWith('.dylib')) {
+                def destFile = new File(jreLibDir, file.name)
+                java.nio.file.Files.copy(
+                    file.toPath(), 
+                    destFile.toPath(), 
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                )
+                // Set executable permissions on native libraries
+                def chmodProcess = ['chmod', '755', destFile.absolutePath].execute()
+                chmodProcess.waitFor()
+                if (chmodProcess.exitValue() != 0) {
+                    logger.warn("Failed to set permissions on ${destFile.name}")
+                }
+                dylibCount++
+                println "    Copied: ${file.name}"
+            }
+        }
+        println "  ✓ Copied ${dylibCount} JavaFX native libraries"
+        
+        // Verify JavaFX modules are present
+        println "  Verifying JavaFX modules..."
+        def requiredModules = [
+            'javafx.base.jar',
+            'javafx.controls.jar',
+            'javafx.graphics.jar'
+        ]
+        
+        def missingModules = []
+        requiredModules.each { moduleName ->
+            def moduleFile = new File(javafxDir, moduleName)
+            if (!moduleFile.exists()) {
+                missingModules.add(moduleName)
+            }
+        }
+        
+        if (!missingModules.isEmpty()) {
+            throw new GradleException("Missing required JavaFX modules: ${missingModules.join(', ')}")
+        }
+        println "  ✓ All required JavaFX modules verified"
+        
+        // Clean up temporary extraction directory
+        println "  Cleaning up temporary files..."
+        tempExtractDir.deleteDir()
+        
+        println "✓ JavaFX extraction complete"
+        println "  JAR files: ${jarCount}"
+        println "  Native libraries: ${dylibCount}"
+    }
+    
+    // Only run on macOS or Linux (not Windows)
+    onlyIf {
+        def os = System.getProperty('os.name').toLowerCase()
+        if (os.contains('windows')) {
+            logger.warn("extractMacOSJavaFX task requires Unix-like system (macOS or Linux)")
+            return false
+        }
+        return true
+    }
+}
+
+// Task to copy launcher application files to .app bundle
+tasks.register('copyMacOSLauncherFiles') {
+    group = 'macOS'
+    description = 'Copies launcher JAR, dependencies, and icon to the .app bundle'
+    
+    dependsOn jar, extractMacOSJavaFX
+    
+    def appBundleDir = new File(buildDir, 'macos/WoodlandersLauncher.app')
+    def appLibDir = new File(appBundleDir, 'Contents/Resources/app/lib')
+    def resourcesDir = new File(appBundleDir, 'Contents/Resources')
+    def iconSource = file('../icon/woodlanders-launcher.icns')
+    def iconDest = new File(resourcesDir, 'woodlanders-launcher.icns')
+    
+    inputs.files(jar.archiveFile)
+    inputs.files(configurations.runtimeClasspath)
+    inputs.file(iconSource)
+    outputs.dir(appLibDir)
+    outputs.file(iconDest)
+    
+    doLast {
+        println "Copying launcher application files to .app bundle..."
+        
+        // Ensure lib directory exists
+        if (!appLibDir.exists()) {
+            appLibDir.mkdirs()
+        }
+        
+        // Copy launcher JAR
+        println "  Copying launcher JAR..."
+        def launcherJar = jar.archiveFile.get().asFile
+        def launcherDest = new File(appLibDir, 'woodlanders-launcher.jar')
+        java.nio.file.Files.copy(
+            launcherJar.toPath(),
+            launcherDest.toPath(),
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING
+        )
+        println "    ✓ Copied: ${launcherJar.name} -> ${launcherDest.path.replace(buildDir.path, 'build')}"
+        
+        // Copy all dependency JARs
+        println "  Copying dependency JARs..."
+        def depCount = 0
+        configurations.runtimeClasspath.files.each { file ->
+            if (file.name.endsWith('.jar')) {
+                def destFile = new File(appLibDir, file.name)
+                java.nio.file.Files.copy(
+                    file.toPath(),
+                    destFile.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                )
+                depCount++
+                println "    Copied: ${file.name}"
+            }
+        }
+        println "  ✓ Copied ${depCount} dependency JARs"
+        
+        // Copy ICNS icon to Resources
+        println "  Copying application icon..."
+        if (!iconSource.exists()) {
+            throw new GradleException("Icon file not found: ${iconSource.path}")
+        }
+        java.nio.file.Files.copy(
+            iconSource.toPath(),
+            iconDest.toPath(),
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING
+        )
+        println "    ✓ Copied: ${iconSource.name} -> ${iconDest.path.replace(buildDir.path, 'build')}"
+        
+        println "✓ Launcher application files copied successfully"
+        println "  Launcher JAR: 1"
+        println "  Dependencies: ${depCount}"
+        println "  Icon: 1"
+    }
+    
+    // Only run on macOS or Linux (not Windows)
+    onlyIf {
+        def os = System.getProperty('os.name').toLowerCase()
+        if (os.contains('windows')) {
+            logger.warn("copyMacOSLauncherFiles task requires Unix-like system (macOS or Linux)")
+            return false
+        }
+        return true
+    }
+}
+
+// Task to generate Info.plist from template
+tasks.register('generateMacOSInfoPlist') {
+    group = 'macOS'
+    description = 'Generates Info.plist from template with version and bundle identifier'
+    
+    dependsOn createMacOSAppBundle
+    
+    def templateFile = file('../macos/Info.plist.template')
+    def appBundleDir = new File(buildDir, 'macos/WoodlandersLauncher.app')
+    def infoPlistFile = new File(appBundleDir, 'Contents/Info.plist')
+    def appVersion = '0.1.1'
+    def bundleIdentifier = 'io.github.gcclinux.woodlanders.launcher'
+    
+    inputs.file(templateFile)
+    outputs.file(infoPlistFile)
+    
+    doLast {
+        println "Generating Info.plist from template..."
+        
+        // Verify template exists
+        if (!templateFile.exists()) {
+            throw new GradleException("Info.plist template not found: ${templateFile.path}")
+        }
+        
+        // Read template content
+        println "  Reading template: ${templateFile.path}"
+        def templateContent = templateFile.text
+        
+        // Replace placeholders
+        println "  Replacing placeholders..."
+        println "    VERSION: ${appVersion}"
+        println "    BUNDLE_IDENTIFIER: ${bundleIdentifier}"
+        
+        def generatedContent = templateContent
+            .replace('{{VERSION}}', appVersion)
+            .replace('{{BUNDLE_IDENTIFIER}}', bundleIdentifier)
+        
+        // Ensure Contents directory exists
+        def contentsDir = infoPlistFile.parentFile
+        if (!contentsDir.exists()) {
+            contentsDir.mkdirs()
+        }
+        
+        // Write generated Info.plist
+        println "  Writing Info.plist to: ${infoPlistFile.path.replace(buildDir.path, 'build')}"
+        infoPlistFile.text = generatedContent
+        
+        println "✓ Info.plist generated successfully"
+    }
+    
+    // Only run on macOS or Linux (not Windows)
+    onlyIf {
+        def os = System.getProperty('os.name').toLowerCase()
+        if (os.contains('windows')) {
+            logger.warn("generateMacOSInfoPlist task requires Unix-like system (macOS or Linux)")
+            return false
+        }
+        return true
+    }
+}
+
+// Task to generate launcher script from template
+tasks.register('generateMacOSLauncherScript') {
+    group = 'macOS'
+    description = 'Generates the native launcher script from template'
+    
+    dependsOn createMacOSAppBundle
+    
+    def templateFile = file('../macos/launcher.sh.template')
+    def appBundleDir = new File(buildDir, 'macos/WoodlandersLauncher.app')
+    def launcherScript = new File(appBundleDir, 'Contents/MacOS/WoodlandersLauncher')
+    
+    inputs.file(templateFile)
+    outputs.file(launcherScript)
+    
+    doLast {
+        println "Generating launcher script from template..."
+        
+        // Verify template exists
+        if (!templateFile.exists()) {
+            throw new GradleException("Launcher script template not found: ${templateFile.path}")
+        }
+        
+        // Read template content
+        println "  Reading template: ${templateFile.path}"
+        def templateContent = templateFile.text
+        
+        // For now, the template doesn't have placeholders, so we just copy it
+        // In the future, we could add placeholders for version, etc.
+        def generatedContent = templateContent
+        
+        // Ensure MacOS directory exists
+        def macosDir = launcherScript.parentFile
+        if (!macosDir.exists()) {
+            macosDir.mkdirs()
+        }
+        
+        // Write launcher script
+        println "  Writing launcher script to: ${launcherScript.path.replace(buildDir.path, 'build')}"
+        launcherScript.text = generatedContent
+        
+        // Set executable permissions (chmod 755)
+        println "  Setting executable permissions (755)..."
+        def chmodProcess = ['chmod', '755', launcherScript.absolutePath].execute()
+        chmodProcess.waitFor()
+        
+        if (chmodProcess.exitValue() != 0) {
+            throw new GradleException("Failed to set executable permissions on launcher script")
+        }
+        
+        println "  ✓ Executable permissions set (755)"
+        
+        // Verify the script is executable
+        if (!launcherScript.canExecute()) {
+            logger.warn("Warning: Launcher script may not be executable on this system")
+        }
+        
+        println "✓ Launcher script generated successfully"
+    }
+    
+    // Only run on macOS or Linux (not Windows)
+    onlyIf {
+        def os = System.getProperty('os.name').toLowerCase()
+        if (os.contains('windows')) {
+            logger.warn("generateMacOSLauncherScript task requires Unix-like system (macOS or Linux)")
+            return false
+        }
+        return true
+    }
+}
+
+// Task to generate PkgInfo file
+tasks.register('generateMacOSPkgInfo') {
+    group = 'macOS'
+    description = 'Generates PkgInfo file with application type and signature'
+    
+    dependsOn createMacOSAppBundle
+    
+    def appBundleDir = new File(buildDir, 'macos/WoodlandersLauncher.app')
+    def pkgInfoFile = new File(appBundleDir, 'Contents/PkgInfo')
+    
+    outputs.file(pkgInfoFile)
+    
+    doLast {
+        println "Generating PkgInfo file..."
+        
+        // Ensure Contents directory exists
+        def contentsDir = pkgInfoFile.parentFile
+        if (!contentsDir.exists()) {
+            contentsDir.mkdirs()
+        }
+        
+        // Write PkgInfo file with "APPLWDLN" (type + signature)
+        // APPL = application type (4 bytes)
+        // WDLN = Woodlanders signature (4 bytes)
+        println "  Writing PkgInfo to: ${pkgInfoFile.path.replace(buildDir.path, 'build')}"
+        pkgInfoFile.text = 'APPLWDLN'
+        
+        println "  ✓ PkgInfo content: APPLWDLN (type: APPL, signature: WDLN)"
+        println "✓ PkgInfo file generated successfully"
+    }
+    
+    // Only run on macOS or Linux (not Windows)
+    onlyIf {
+        def os = System.getProperty('os.name').toLowerCase()
+        if (os.contains('windows')) {
+            logger.warn("generateMacOSPkgInfo task requires Unix-like system (macOS or Linux)")
+            return false
+        }
+        return true
+    }
+}
+
+// Task to code sign the .app bundle (optional)
+tasks.register('codesignMacOSApp') {
+    group = 'macOS'
+    description = 'Code signs the .app bundle with a developer certificate (optional)'
+    
+    dependsOn copyMacOSLauncherFiles, generateMacOSInfoPlist, generateMacOSLauncherScript, generateMacOSPkgInfo
+    
+    def appBundleDir = new File(buildDir, 'macos/WoodlandersLauncher.app')
+    def jreDir = new File(appBundleDir, 'Contents/Resources/app/jre')
+    
+    // Check for code signing identity from environment variable or gradle property
+    def signingIdentity = System.getenv('MACOS_CODESIGN_IDENTITY') ?: project.findProperty('macosCodesignIdentity')
+    
+    inputs.dir(appBundleDir)
+    outputs.dir(appBundleDir)
+    
+    doLast {
+        if (!signingIdentity) {
+            println "\nℹ Code signing skipped:"
+            println "  No signing identity configured."
+            println "  To enable code signing, set one of:"
+            println "    - Environment variable: MACOS_CODESIGN_IDENTITY"
+            println "    - Gradle property: macosCodesignIdentity"
+            println "  Example: export MACOS_CODESIGN_IDENTITY=\"Developer ID Application: Your Name\""
+            println ""
+            return
+        }
+        
+        println "Code signing .app bundle with identity: ${signingIdentity}"
+        
+        // Verify .app bundle exists
+        if (!appBundleDir.exists()) {
+            throw new GradleException(".app bundle not found: ${appBundleDir.path}")
+        }
+        
+        // Step 1: Sign all binaries in jre/bin/
+        println "  Signing binaries in jre/bin/..."
+        def binDir = new File(jreDir, 'bin')
+        if (binDir.exists() && binDir.isDirectory()) {
+            def signedCount = 0
+            binDir.listFiles().each { file ->
+                if (file.isFile()) {
+                    println "    Signing: ${file.name}"
+                    def signCmd = [
+                        'codesign',
+                        '--force',
+                        '--sign', signingIdentity,
+                        '--timestamp',
+                        '--options', 'runtime',
+                        file.absolutePath
+                    ]
+                    def signProcess = signCmd.execute()
+                    signProcess.waitForProcessOutput(System.out, System.err)
+                    
+                    if (signProcess.exitValue() != 0) {
+                        throw new GradleException("Failed to sign binary: ${file.name}")
+                    }
+                    signedCount++
+                }
+            }
+            println "  ✓ Signed ${signedCount} binaries in jre/bin/"
+        } else {
+            logger.warn("jre/bin/ directory not found, skipping binary signing")
+        }
+        
+        // Step 2: Sign all native libraries in jre/lib/
+        println "  Signing native libraries in jre/lib/..."
+        def libDir = new File(jreDir, 'lib')
+        if (libDir.exists() && libDir.isDirectory()) {
+            def signedCount = 0
+            // Find all .dylib files recursively
+            libDir.eachFileRecurse { file ->
+                if (file.name.endsWith('.dylib')) {
+                    println "    Signing: ${file.name}"
+                    def signCmd = [
+                        'codesign',
+                        '--force',
+                        '--sign', signingIdentity,
+                        '--timestamp',
+                        '--options', 'runtime',
+                        file.absolutePath
+                    ]
+                    def signProcess = signCmd.execute()
+                    signProcess.waitForProcessOutput(System.out, System.err)
+                    
+                    if (signProcess.exitValue() != 0) {
+                        throw new GradleException("Failed to sign library: ${file.name}")
+                    }
+                    signedCount++
+                }
+            }
+            println "  ✓ Signed ${signedCount} native libraries in jre/lib/"
+        } else {
+            logger.warn("jre/lib/ directory not found, skipping library signing")
+        }
+        
+        // Step 3: Sign the .app bundle itself with --deep --force flags
+        println "  Signing .app bundle..."
+        def signBundleCmd = [
+            'codesign',
+            '--deep',
+            '--force',
+            '--sign', signingIdentity,
+            '--timestamp',
+            '--options', 'runtime',
+            appBundleDir.absolutePath
+        ]
+        def signBundleProcess = signBundleCmd.execute()
+        signBundleProcess.waitForProcessOutput(System.out, System.err)
+        
+        if (signBundleProcess.exitValue() != 0) {
+            throw new GradleException("Failed to sign .app bundle")
+        }
+        println "  ✓ Signed .app bundle"
+        
+        // Step 4: Verify signatures with codesign --verify
+        println "  Verifying signatures..."
+        def verifyCmd = [
+            'codesign',
+            '--verify',
+            '--deep',
+            '--strict',
+            '--verbose=2',
+            appBundleDir.absolutePath
+        ]
+        def verifyProcess = verifyCmd.execute()
+        def verifyOutput = new StringBuilder()
+        def verifyError = new StringBuilder()
+        verifyProcess.waitForProcessOutput(verifyOutput, verifyError)
+        
+        if (verifyProcess.exitValue() != 0) {
+            println "  Verification output: ${verifyOutput}"
+            println "  Verification errors: ${verifyError}"
+            throw new GradleException("Code signature verification failed")
+        }
+        
+        println "  ✓ All signatures verified successfully"
+        println "✓ Code signing complete"
+    }
+    
+    // Only run on macOS
+    onlyIf {
+        def os = System.getProperty('os.name').toLowerCase()
+        if (!os.contains('mac')) {
+            logger.info("Code signing task requires macOS")
+            return false
+        }
+        
+        // Check if codesign command is available
+        try {
+            def checkCmd = ['sh', '-c', 'command -v codesign'].execute()
+            checkCmd.waitFor()
+            
+            if (checkCmd.exitValue() != 0) {
+                logger.warn("codesign command not found. Skipping code signing.")
+                return false
+            }
+            return true
+        } catch (Exception e) {
+            logger.warn("Could not detect codesign: ${e.message}")
+            return false
+        }
+    }
+}
+
+// Task to create DMG disk image
+tasks.register('createMacOSDMG') {
+    group = 'macOS'
+    description = 'Creates a DMG disk image containing the .app bundle'
+    
+    dependsOn codesignMacOSApp
+    
+    def appBundleDir = new File(buildDir, 'macos/WoodlandersLauncher.app')
+    def dmgStagingDir = new File(buildDir, 'macos/dmg-staging')
+    def distributionsDir = new File(buildDir, 'distributions')
+    def dmgFile = new File(distributionsDir, 'woodlanders-launcher-macos-0.1.1.dmg')
+    def readmeSource = file('../macos/README.md')
+    def volumeName = 'Woodlanders Launcher'
+    
+    inputs.dir(appBundleDir)
+    inputs.file(readmeSource)
+    outputs.file(dmgFile)
+    
+    doLast {
+        println "Creating DMG disk image..."
+        
+        // Verify .app bundle exists
+        if (!appBundleDir.exists()) {
+            throw new GradleException(".app bundle not found: ${appBundleDir.path}")
+        }
+        
+        // Verify README exists
+        if (!readmeSource.exists()) {
+            throw new GradleException("README not found: ${readmeSource.path}")
+        }
+        
+        // Create staging directory
+        println "  Creating DMG staging directory..."
+        if (dmgStagingDir.exists()) {
+            dmgStagingDir.deleteDir()
+        }
+        dmgStagingDir.mkdirs()
+        
+        // Copy .app bundle to staging directory
+        println "  Copying .app bundle to staging directory..."
+        def stagingAppBundle = new File(dmgStagingDir, 'WoodlandersLauncher.app')
+        def copyAppProcess = ['cp', '-R', appBundleDir.absolutePath, stagingAppBundle.absolutePath].execute()
+        copyAppProcess.waitForProcessOutput(System.out, System.err)
+        
+        if (copyAppProcess.exitValue() != 0) {
+            throw new GradleException("Failed to copy .app bundle to staging directory")
+        }
+        println "    ✓ Copied: WoodlandersLauncher.app"
+        
+        // Copy README to staging directory
+        println "  Copying README to staging directory..."
+        def stagingReadme = new File(dmgStagingDir, 'README.md')
+        java.nio.file.Files.copy(
+            readmeSource.toPath(),
+            stagingReadme.toPath(),
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING
+        )
+        println "    ✓ Copied: README.md"
+        
+        // Ensure distributions directory exists
+        if (!distributionsDir.exists()) {
+            distributionsDir.mkdirs()
+        }
+        
+        // Delete existing DMG if it exists
+        if (dmgFile.exists()) {
+            println "  Removing existing DMG..."
+            dmgFile.delete()
+        }
+        
+        // Create DMG using hdiutil
+        println "  Creating DMG with hdiutil..."
+        println "    Volume name: ${volumeName}"
+        println "    Format: UDZO (compressed)"
+        println "    Output: ${dmgFile.path.replace(buildDir.path, 'build')}"
+        
+        def hdutilCmd = [
+            'hdiutil', 'create',
+            '-volname', volumeName,
+            '-srcfolder', dmgStagingDir.absolutePath,
+            '-ov',
+            '-format', 'UDZO',
+            dmgFile.absolutePath
+        ]
+        
+        def hdutilProcess = hdutilCmd.execute()
+        hdutilProcess.waitForProcessOutput(System.out, System.err)
+        
+        if (hdutilProcess.exitValue() != 0) {
+            throw new GradleException("Failed to create DMG with hdiutil")
+        }
+        
+        println "  ✓ DMG created successfully"
+        
+        // Verify DMG file exists
+        if (!dmgFile.exists()) {
+            throw new GradleException("DMG file was not created: ${dmgFile.path}")
+        }
+        
+        // Get DMG file size
+        def dmgSizeMB = dmgFile.length() / 1024 / 1024
+        println "  DMG size: ${String.format('%.2f', dmgSizeMB)} MB"
+        
+        // Clean up staging directory
+        println "  Cleaning up staging directory..."
+        dmgStagingDir.deleteDir()
+        
+        println "✓ DMG creation complete"
+        println "  Output: ${dmgFile.path.replace(buildDir.path, 'build')}"
+    }
+    
+    // Only run on macOS
+    onlyIf {
+        def os = System.getProperty('os.name').toLowerCase()
+        if (!os.contains('mac')) {
+            logger.warn("createMacOSDMG task requires macOS (hdiutil command)")
+            return false
+        }
+        
+        // Check if hdiutil is available
+        try {
+            def checkCmd = ['sh', '-c', 'command -v hdiutil'].execute()
+            checkCmd.waitFor()
+            
+            if (checkCmd.exitValue() != 0) {
+                logger.warn("hdiutil command not found. Skipping DMG creation.")
+                return false
+            }
+            return true
+        } catch (Exception e) {
+            logger.warn("Could not detect hdiutil: ${e.message}")
+            return false
+        }
+    }
+}
+
+// Main macOS package task - orchestrates all macOS build tasks
+tasks.register('macosPackage') {
+    group = 'distribution'
+    description = 'Creates a complete macOS .app bundle packaged in a DMG file'
+    
+    // Add dependencies on all previous tasks in correct order
+    dependsOn downloadMacOSJDK, 
+              downloadMacOSJavaFX, 
+              createMacOSAppBundle, 
+              extractMacOSJDK, 
+              extractMacOSJavaFX, 
+              copyMacOSLauncherFiles, 
+              generateMacOSInfoPlist, 
+              generateMacOSLauncherScript, 
+              generateMacOSPkgInfo, 
+              codesignMacOSApp,
+              createMacOSDMG
+    
+    doLast {
+        def dmgFile = new File(buildDir, 'distributions/woodlanders-launcher-macos-0.1.1.dmg')
+        
+        if (dmgFile.exists()) {
+            def dmgSizeMB = dmgFile.length() / 1024 / 1024
+            println "\n========================================="
+            println "macOS Package Build Complete!"
+            println "========================================="
+            println "DMG file: app/build/distributions/woodlanders-launcher-macos-0.1.1.dmg"
+            println "Size: ${String.format('%.2f', dmgSizeMB)} MB"
+            println ""
+            println "Installation:"
+            println "  1. Mount the DMG file"
+            println "  2. Drag WoodlandersLauncher.app to Applications"
+            println "  3. Control+click → Open on first launch (Gatekeeper)"
+            println "=========================================\n"
+        } else {
+            logger.warn("DMG file was not created")
+        }
+    }
+    
+    // Only run on macOS operating system
+    onlyIf {
+        def os = System.getProperty('os.name').toLowerCase()
+        
+        if (!os.contains('mac')) {
+            println "\n⚠ Skipping macOS package build:"
+            println "  This task can only run on macOS systems."
+            println "  Current OS: ${System.getProperty('os.name')}"
+            println "  To build the macOS package, run this task on a Mac.\n"
+            return false
+        }
+        
+        // Check for required tools: hdiutil and iconutil
+        def missingTools = []
+        
+        // Check for hdiutil
+        try {
+            def hdutilCheck = ['sh', '-c', 'command -v hdiutil'].execute()
+            hdutilCheck.waitFor()
+            if (hdutilCheck.exitValue() != 0) {
+                missingTools.add('hdiutil')
+            }
+        } catch (Exception e) {
+            missingTools.add('hdiutil')
+        }
+        
+        // Check for iconutil (optional but recommended)
+        try {
+            def iconutilCheck = ['sh', '-c', 'command -v iconutil'].execute()
+            iconutilCheck.waitFor()
+            if (iconutilCheck.exitValue() != 0) {
+                logger.info("iconutil not found (optional tool)")
+            }
+        } catch (Exception e) {
+            logger.info("iconutil not found (optional tool)")
+        }
+        
+        if (!missingTools.isEmpty()) {
+            println "\n⚠ Skipping macOS package build:"
+            println "  Missing required tools: ${missingTools.join(', ')}"
+            println "  Please install Xcode Command Line Tools:"
+            println "    xcode-select --install"
+            println ""
+            return false
+        }
+        
+        return true
+    }
+}
+
+// Helper function to calculate SHA256 checksum
+def calculateSha256(File file) {
+    def digest = java.security.MessageDigest.getInstance('SHA-256')
+    file.withInputStream { stream ->
+        def buffer = new byte[8192]
+        def bytesRead
+        while ((bytesRead = stream.read(buffer)) != -1) {
+            digest.update(buffer, 0, bytesRead)
+        }
+    }
+    return digest.digest().encodeHex().toString()
 }
