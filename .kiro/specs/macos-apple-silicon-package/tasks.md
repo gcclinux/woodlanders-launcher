@@ -215,6 +215,6 @@
   - Test Gatekeeper behavior on fresh install
   - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.3, 3.1, 3.4, 4.1, 4.2, 9.1, 9.2, 9.3_
 
-- [ ] 23. Write property test for platform-independent functionality
+- [x] 23. Write property test for platform-independent functionality
   - **Property 7: Platform-independent functionality**
   - **Validates: Requirements 9.1, 9.2, 9.3, 9.5**
