@@ -177,8 +177,8 @@ sudo apt install openjdk-21-jre  # Debian/Ubuntu
 sudo dnf install java-21-openjdk  # Fedora
 
 # Extract and run
-tar -xzf woodlanders-launcher-linux-0.1.0.tar.gz
-cd woodlanders-launcher-linux-0.1.0
+tar -xzf woodlanders-launcher-linux-0.1.2.tar.gz
+cd woodlanders-launcher-linux-0.1.2
 chmod +x launcher.sh
 ./launcher.sh
 ```
