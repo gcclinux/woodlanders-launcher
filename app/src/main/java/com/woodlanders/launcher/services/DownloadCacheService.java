@@ -3,6 +3,7 @@ package com.woodlanders.launcher.services;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
@@ -90,7 +91,7 @@ public class DownloadCacheService {
         // Ensure parent directory exists
         destination.getParentFile().mkdirs();
         
-        URL downloadUrl = new URL(url);
+        URL downloadUrl = URI.create(url).toURL();
         URLConnection connection = downloadUrl.openConnection();
         connection.setRequestProperty("User-Agent", "Woodlanders-Launcher-Build");
         connection.connect();

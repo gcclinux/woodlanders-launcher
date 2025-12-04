@@ -1,6 +1,6 @@
 name: woodlanders-launcher
 base: core24
-version: 0.1.1
+version: 0.1.2
 summary: Woodlanders game launcher and updater
 description: |
   Desktop launcher for the Woodlanders Single and Multiplayer Adventure game. It checks GitHub for the
@@ -16,12 +16,14 @@ license: MIT
 contact: https://github.com/gcclinux/woodlanders/discussions
 website: https://gcclinux.github.io/woodlanders/
 source-code: https://github.com/gcclinux/woodlanders-launcher
-issues: https://github.com/gcclinux/Woodlanders/issues
+issues: https://github.com/gcclinux/woodlanders/issues
 donation: https://www.buymeacoffee.com/gcclinux
 
 environment:
   JAVA_HOME: $SNAP/usr/lib/jvm/java-21-openjdk-amd64
   PATH: $JAVA_HOME/bin:$PATH
+  ALSA_CONFIG_PATH: $SNAP/etc/alsa.conf
+  LD_LIBRARY_PATH: $SNAP/usr/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu/pulseaudio:$LD_LIBRARY_PATH
 
 apps:
   woodlanders-launcher:
@@ -36,8 +38,28 @@ apps:
       - network
       - network-bind
       - opengl
+      - audio-playback
+      - pulseaudio
+
+plugs:
+  pulseaudio:
+    interface: pulseaudio
 
 parts:
+  alsa-config:
+    plugin: nil
+    after: [launcher]
+    override-build: |
+      mkdir -p $CRAFT_PART_INSTALL/etc
+      cat > $CRAFT_PART_INSTALL/etc/alsa.conf << 'EOF'
+      pcm.!default {
+        type pulse
+      }
+      ctl.!default {
+        type pulse
+      }
+      EOF
+
   launcher:
     plugin: nil
     source: .
@@ -48,6 +70,9 @@ parts:
       - libgtk-3-0
       - libglib2.0-0
       - libasound2
+      - libasound2-plugins
+      - libpulse0
+      - pulseaudio-utils
       - libx11-6
       - libxtst6
       - libnss3

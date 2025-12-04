@@ -93,7 +93,7 @@ public class LauncherApplication extends Application {
         primaryButton.setOnAction(event -> handlePrimaryAction());
         primaryButton.setMaxWidth(Double.MAX_VALUE);
 
-        Hyperlink websiteLink = new Hyperlink("Project site: gcclinux.github.io/Woodlanders");
+        Hyperlink websiteLink = new Hyperlink("Project site: gcclinux.github.io/woodlanders");
         websiteLink.setOnAction(event -> getHostServices().showDocument(PROJECT_URL.toString()));
 
         VBox root = new VBox(12, heading, statusLabel, primaryButton, versionLabel, websiteLink);

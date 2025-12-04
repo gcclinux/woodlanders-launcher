@@ -28,7 +28,21 @@ public final class LauncherPaths {
         return osName != null && osName.toLowerCase().contains("mac");
     }
 
+    /**
+     * Detects if running inside a snap container.
+     */
+    @SuppressWarnings("unused")
+    private static boolean isSnap() {
+        return System.getenv("SNAP_USER_COMMON") != null;
+    }
+
     public static Path configDirectory() {
+        // When running as a snap, use SNAP_USER_COMMON for persistent storage
+        String snapUserCommon = System.getenv("SNAP_USER_COMMON");
+        if (snapUserCommon != null) {
+            return Path.of(snapUserCommon, APP_DIR);
+        }
+        
         String home = System.getProperty("user.home");
         Objects.requireNonNull(home, "user.home system property is missing");
         
