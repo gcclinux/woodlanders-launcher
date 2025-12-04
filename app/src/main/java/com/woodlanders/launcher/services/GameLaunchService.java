@@ -36,16 +36,16 @@ public class GameLaunchService {
         }
         
         builder.directory(LauncherPaths.configDirectory().toFile());
-        
-        configurePulseServer(builder.environment());
-        
-        builder.inheritIO();
-        
-        // Set audio environment for Snap confinement
+
+        // Snap: explicitly wire PulseAudio for confined environment.
+        // Flatpak/regular desktop: inherit host audio env without overrides.
         String snapName = System.getenv("SNAP_NAME");
         if (snapName != null) {
+            configurePulseServer(builder.environment());
             builder.environment().put("PULSE_LATENCY_MSEC", "60");
         }
+
+        builder.inheritIO();
         
         // Debug: Log the exact command being executed
         LOG.info("Executing command: {}", String.join(" ", builder.command()));
