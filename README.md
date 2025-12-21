@@ -1,4 +1,4 @@
-# Woodlander-Launcher
+# Woodlanders-Launcher
 
 <div align="center" style="margin: 16px 0;">
   <img src="docs/woodlanders-launcher.png" alt="Woodlanders Launcher" width="720" />
